@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -7,220 +7,396 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "../supabase";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { supabase } from '../supabase';
+
+const CATEGORIES = [
+  { value: 'work', label: 'Work' },
+  { value: 'personal', label: 'Personal' },
+  { value: 'other', label: 'Other' },
+];
 
 const CalendarSection = () => {
   const [events, setEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentEvent, setCurrentEvent] = useState(null);
-  const [newEvent, setNewEvent] = useState({ title: '', start_time: '', end_time: '', description: '', location: '', category: '' });
+  const [newEvent, setNewEvent] = useState({ title: '', description: '', start: '', end: '', location: '', category: '' });
+  const [isEditing, setIsEditing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState(null);
+  const calendarRef = useRef(null);
+
+  const fetchEvents = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*');
+    if (error) {
+      console.error('Error fetching events:', error);
+    } else {
+      const formattedEvents = data.map(event => ({
+        id: event.id,
+        title: event.title,
+        start: event.start_time,
+        end: event.end_time,
+        allDay: !event.start_time.includes('T'), // Determine if it's an all-day event
+        extendedProps: {
+          description: event.description,
+          location: event.location,
+          category: event.category
+        }
+      }));
+      setEvents(formattedEvents);
+    }
+  }, []);
 
   useEffect(() => {
     fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
-    const { data, error } = await supabase.from('events').select('*');
-    if (error) {
-      console.error("Error fetching events:", error);
-      return;
-    }
-    setEvents(data.map(event => ({
-      ...event,
-      start: new Date(event.start_time),
-      end: new Date(event.end_time)
-    })));
-  };
+  }, [fetchEvents]);
 
   const handleDateSelect = (selectInfo) => {
     setIsModalOpen(true);
     setNewEvent({
       title: '',
-      start_time: selectInfo.startStr,
-      end_time: selectInfo.endStr,
       description: '',
+      start: selectInfo.startStr,
+      end: selectInfo.endStr,
       location: '',
       category: ''
     });
+    setIsEditing(false);
+  };
+
+  const handleEventClick = (clickInfo) => {
+    setIsModalOpen(true);
+    setNewEvent({
+      id: clickInfo.event.id,
+      title: clickInfo.event.title,
+      description: clickInfo.event.extendedProps.description,
+      start: clickInfo.event.startStr,
+      end: clickInfo.event.endStr,
+      location: clickInfo.event.extendedProps.location,
+      category: clickInfo.event.extendedProps.category
+    });
+    setIsEditing(true);
   };
 
   const handleEventAdd = async () => {
-    console.log("Adding event:", newEvent);
-    if (newEvent.title && newEvent.start_time && newEvent.end_time) {
-      const { error } = await supabase
-        .from('events')
-        .insert([newEvent]);
-  
-      if (error) {
-        console.error("Error adding event:", error);
-        return;
-      }
-  
-      const { data, fetchError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('title', newEvent.title)
-        .eq('start_time', newEvent.start_time)
-        .eq('end_time', newEvent.end_time)
-        .single();
-  
-      if (fetchError) {
-        console.error("Error fetching added event:", fetchError);
-        return;
-      }
-  
-      if (data && data.start_time && data.end_time) {
-        setEvents([...events, { ...data, start: new Date(data.start_time), end: new Date(data.end_time) }]);
-        setIsModalOpen(false);
-        setNewEvent({ title: '', start_time: '', end_time: '', description: '', location: '', category: '' });
+    if (newEvent.title) {
+      const eventToAdd = {
+        title: newEvent.title,
+        description: newEvent.description,
+        start_time: newEvent.start,
+        end_time: newEvent.end,
+        location: newEvent.location,
+        category: newEvent.category
+      };
+
+      if (isEditing) {
+        const { error } = await supabase
+          .from('events')
+          .update(eventToAdd)
+          .eq('id', newEvent.id);
+        if (error) console.error('Error updating event:', error);
+        else {
+          setEvents(currentEvents => currentEvents.map(event =>
+            event.id === newEvent.id ? { ...event, ...eventToAdd, allDay: !eventToAdd.start_time.includes('T') } : event
+          ));
+        }
       } else {
-        console.error("Invalid data returned from Supabase:", data);
-      }
-    } else {
-      console.error("Event details are missing:", newEvent);
-    }
-  };
-  
-
-  const handleEventClick = (clickInfo) => {
-    setCurrentEvent(clickInfo.event);
-    setNewEvent({
-      title: clickInfo.event.title,
-      start_time: clickInfo.event.startStr,
-      end_time: clickInfo.event.endStr,
-      description: clickInfo.event.extendedProps.description || '',
-      location: clickInfo.event.extendedProps.location || '',
-      category: clickInfo.event.extendedProps.category || ''
-    });
-    setIsModalOpen(true);
-  };
-
-  const handleEventEdit = async () => {
-    if (currentEvent && newEvent.title) {
-      const { data, error } = await supabase
-        .from('events')
-        .update(newEvent)
-        .eq('id', currentEvent.id)
-        .single();
-
-      if (error) {
-        console.error("Error editing event:", error);
-        return;
+        const { data, error } = await supabase
+          .from('events')
+          .insert([eventToAdd])
+          .select();
+        if (error) console.error('Error adding event:', error);
+        else {
+          const newFormattedEvent = {
+            id: data[0].id,
+            title: data[0].title,
+            start: data[0].start_time,
+            end: data[0].end_time,
+            allDay: !data[0].start_time.includes('T'), // Determine if it's an all-day event
+            extendedProps: {
+              description: data[0].description,
+              location: data[0].location,
+              category: data[0].category
+            }
+          };
+          setEvents(currentEvents => [...currentEvents, newFormattedEvent]);
+        }
       }
 
-      if (data && data.start_time && data.end_time) {
-        setEvents(events.map(event => (event.id === currentEvent.id ? { ...data, start: new Date(data.start_time), end: new Date(data.end_time) } : event)));
-        setIsModalOpen(false);
-        setCurrentEvent(null);
-        setNewEvent({ title: '', start_time: '', end_time: '', description: '', location: '', category: '' });
-      } else {
-        console.error("Invalid data returned from Supabase:", data);
-      }
+      setIsModalOpen(false);
+      setNewEvent({ title: '', description: '', start: '', end: '', location: '', category: '' });
     }
   };
 
   const handleEventDelete = async () => {
-    if (currentEvent) {
+    if (isEditing && newEvent.id) {
       const { error } = await supabase
         .from('events')
         .delete()
-        .eq('id', currentEvent.id);
-
-      if (error) {
-        console.error("Error deleting event:", error);
-        return;
+        .eq('id', newEvent.id);
+      if (error) console.error('Error deleting event:', error);
+      else {
+        setIsModalOpen(false);
+        setEvents(currentEvents => currentEvents.filter(event => event.id !== newEvent.id));
       }
-
-      setEvents(events.filter(event => event.id !== currentEvent.id));
-      setIsModalOpen(false);
-      setCurrentEvent(null);
-      setNewEvent({ title: '', start_time: '', end_time: '', description: '', location: '', category: '' });
     }
   };
 
-  const handleEventDrop = async (eventDropInfo) => {
+  const handleEventDrop = async (dropInfo) => {
+    console.log('handleEventDrop:', dropInfo);
     const updatedEvent = {
-      ...eventDropInfo.event.extendedProps,
-      start_time: eventDropInfo.event.startStr,
-      end_time: eventDropInfo.event.endStr
+      id: dropInfo.event.id,
+      start_time: dropInfo.event.startStr,
+      end_time: dropInfo.event.endStr || dropInfo.event.startStr // Use start time if end time is empty
     };
 
-    const { data, error } = await supabase
-      .from('events')
-      .update(updatedEvent)
-      .eq('id', eventDropInfo.event.id)
-      .single();
-
-    if (error) {
-      console.error("Error updating event:", error);
+    if (!updatedEvent.start_time) {
+      console.error('Invalid event start time:', updatedEvent);
       return;
     }
 
-    if (data && data.start_time && data.end_time) {
-      setEvents(events.map(event => (event.id === data.id ? { ...data, start: new Date(data.start_time), end: new Date(data.end_time) } : event)));
+    const { error } = await supabase
+      .from('events')
+      .update(updatedEvent)
+      .eq('id', updatedEvent.id);
+
+    if (error) {
+      console.error('Error updating event:', error);
     } else {
-      console.error("Invalid data returned from Supabase:", data);
+      setEvents(currentEvents => currentEvents.map(event =>
+        event.id === updatedEvent.id 
+          ? { 
+              ...event, 
+              start: updatedEvent.start_time, 
+              end: updatedEvent.end_time,
+              allDay: !updatedEvent.start_time.includes('T'), // Determine if it's an all-day event
+              extendedProps: {
+                ...event.extendedProps,
+                start_time: updatedEvent.start_time,
+                end_time: updatedEvent.end_time
+              }
+            }
+          : event
+      ));
+    }
+  };
+
+  const handleEventResize = async (resizeInfo) => {
+    console.log('handleEventResize:', resizeInfo);
+    const updatedEvent = {
+      id: resizeInfo.event.id,
+      start_time: resizeInfo.event.startStr,
+      end_time: resizeInfo.event.endStr || resizeInfo.event.startStr // Use start time if end time is empty
+    };
+
+    if (!updatedEvent.start_time) {
+      console.error('Invalid event start time:', updatedEvent);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('events')
+      .update(updatedEvent)
+      .eq('id', updatedEvent.id);
+
+    if (error) {
+      console.error('Error updating event:', error);
+    } else {
+      setEvents(currentEvents => currentEvents.map(event =>
+        event.id === updatedEvent.id 
+          ? { 
+              ...event, 
+              start: updatedEvent.start_time, 
+              end: updatedEvent.end_time,
+              allDay: !updatedEvent.start_time.includes('T'), // Determine if it's an all-day event
+              extendedProps: {
+                ...event.extendedProps,
+                start_time: updatedEvent.start_time,
+                end_time: updatedEvent.end_time
+              }
+            }
+          : event
+      ));
+    }
+  };
+
+  const handleEventChange = async (changeInfo) => {
+    console.log('handleEventChange:', changeInfo);
+    const updatedEvent = {
+      id: changeInfo.event.id,
+      start_time: changeInfo.event.startStr,
+      end_time: changeInfo.event.endStr || changeInfo.event.startStr // Use start time if end time is empty
+    };
+
+    if (!updatedEvent.start_time) {
+      console.error('Invalid event start time:', updatedEvent);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('events')
+      .update(updatedEvent)
+      .eq('id', updatedEvent.id);
+
+    if (error) {
+      console.error('Error updating event:', error);
+    } else {
+      setEvents(currentEvents => currentEvents.map(event =>
+        event.id === updatedEvent.id 
+          ? { 
+              ...event, 
+              start: updatedEvent.start_time, 
+              end: updatedEvent.end_time,
+              allDay: !updatedEvent.start_time.includes('T'), // Determine if it's an all-day event
+              extendedProps: {
+                ...event.extendedProps,
+                start_time: updatedEvent.start_time,
+                end_time: updatedEvent.end_time
+              }
+            }
+          : event
+      ));
+    }
+  };
+
+  const handleSearch = async () => {
+    let query = supabase
+      .from('events')
+      .select('*');
+
+    if (searchTerm) {
+      query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+    }
+
+    if (filterCategory) {
+      query = query.eq('category', filterCategory);
+    }
+
+    const { data, error } = await query;
+
+    if (error) console.error('Error searching events:', error);
+    else {
+      const formattedEvents = data.map(event => ({
+        id: event.id,
+        title: event.title,
+        start: event.start_time,
+        end: event.end_time,
+        allDay: !event.start_time.includes('T'), // Determine if it's an all-day event
+        extendedProps: {
+          description: event.description,
+          location: event.location,
+          category: event.category
+        }
+      }));
+      setEvents(formattedEvents);
     }
   };
 
   return (
     <div className="p-4 bg-white shadow rounded">
       <h2 className="text-2xl font-bold mb-4">Calendar</h2>
+      <div className="mb-4 flex space-x-2">
+        <Input
+          placeholder="Search events..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            {CATEGORIES.map((category) => (
+              <SelectItem key={category.value} value={category.value}>
+                {category.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={handleSearch}>Search</Button>
+      </div>
       <FullCalendar
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+        ref={calendarRef}
+        plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
         initialView="dayGridMonth"
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+          right: 'dayGridMonth,timeGridWeek,timeGridDay,listYear'
         }}
-        events={events}
+        events={events.map(event => ({
+          ...event,
+          end: event.end || event.start, // Ensure all events have an end time
+          allDay: !event.start.includes('T') // Ensure all-day property is set correctly
+        }))}
         selectable={true}
         select={handleDateSelect}
         eventClick={handleEventClick}
         editable={true}
         eventDrop={handleEventDrop}
+        eventResize={handleEventResize}
+        eventChange={handleEventChange}
+        eventResizableFromStart={true}
         height="auto"
+        timeZone="Asia/Kolkata"
       />
-
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{currentEvent ? 'Edit Event' : 'Add New Event'}</DialogTitle>
+            <DialogTitle>{isEditing ? 'Edit Event' : 'Add New Event'}</DialogTitle>
           </DialogHeader>
-          <Input
-            type="text"
-            placeholder="Event Title"
-            value={newEvent.title}
-            onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-          />
-          <Input
-            type="text"
-            placeholder="Event Description"
-            value={newEvent.description}
-            onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-          />
-          <Input
-            type="text"
-            placeholder="Event Location"
-            value={newEvent.location}
-            onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-          />
-          <Input
-            type="text"
-            placeholder="Event Category"
-            value={newEvent.category}
-            onChange={(e) => setNewEvent({ ...newEvent, category: e.target.value })}
-          />
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Event Title</Label>
+              <Input
+                id="title"
+                value={newEvent.title}
+                onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={newEvent.description}
+                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={newEvent.location}
+                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="category">Category</Label>
+              <Select
+                value={newEvent.category}
+                onValueChange={(value) => setNewEvent({ ...newEvent, category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((category) => (
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <DialogFooter>
-            <Button onClick={currentEvent ? handleEventEdit : handleEventAdd}>
-              {currentEvent ? 'Save Changes' : 'Add Event'}
-            </Button>
-            {currentEvent && (
-              <Button variant="destructive" onClick={handleEventDelete}>
-                Delete Event
-              </Button>
+            {isEditing && (
+              <Button variant="destructive" onClick={handleEventDelete}>Delete</Button>
             )}
+            <Button onClick={handleEventAdd}>{isEditing ? 'Update' : 'Add'} Event</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
