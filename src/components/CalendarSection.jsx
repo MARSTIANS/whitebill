@@ -13,24 +13,51 @@ import { Label } from "@/components/ui/label";
 import { supabase } from '../supabase';
 
 const CATEGORIES = [
-  { value: 'work', label: 'Work' },
-  { value: 'personal', label: 'Personal' },
+  { value: 'shoot', label: 'Shoot' },
+  { value: 'meeting', label: 'Meeting' },
   { value: 'other', label: 'Other' },
 ];
+
+const FILTER_CATEGORIES = [
+  { value: 'all', label: 'All' },
+  ...CATEGORIES,
+];
+
+const getCategoryColor = (category) => {
+  switch (category) {
+    case 'shoot':
+      return '#ff6347'; // Tomato
+    case 'meeting':
+      return '#4682b4'; // SteelBlue
+    case 'other':
+      return '#2e8b57'; // SeaGreen
+    default:
+      return '#2e8b57'; // SeaGreen
+  }
+};
 
 const CalendarSection = () => {
   const [events, setEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({ title: '', description: '', start: '', end: '', location: '', category: '' });
+  const [newEvent, setNewEvent] = useState({ title: '', description: '', start: '', end: '', location: '', category: '', allDay: false });
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState(null);
+  const [filterCategory, setFilterCategory] = useState('all');
   const calendarRef = useRef(null);
 
   const fetchEvents = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('*');
+    let query = supabase.from('events').select('*');
+
+    if (searchTerm) {
+      query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+    }
+
+    if (filterCategory && filterCategory !== 'all') {
+      query = query.eq('category', filterCategory);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       console.error('Error fetching events:', error);
     } else {
@@ -39,7 +66,9 @@ const CalendarSection = () => {
         title: event.title,
         start: event.start_time,
         end: event.end_time,
-        allDay: !event.start_time.includes('T'), // Determine if it's an all-day event
+        allDay: event.all_day,
+        backgroundColor: getCategoryColor(event.category),
+        borderColor: getCategoryColor(event.category),
         extendedProps: {
           description: event.description,
           location: event.location,
@@ -48,7 +77,7 @@ const CalendarSection = () => {
       }));
       setEvents(formattedEvents);
     }
-  }, []);
+  }, [searchTerm, filterCategory]);
 
   useEffect(() => {
     fetchEvents();
@@ -60,9 +89,10 @@ const CalendarSection = () => {
       title: '',
       description: '',
       start: selectInfo.startStr,
-      end: selectInfo.endStr,
+      end: selectInfo.endStr || selectInfo.startStr, // Ensure end date is not empty
       location: '',
-      category: ''
+      category: '',
+      allDay: selectInfo.allDay
     });
     setIsEditing(false);
   };
@@ -74,9 +104,10 @@ const CalendarSection = () => {
       title: clickInfo.event.title,
       description: clickInfo.event.extendedProps.description,
       start: clickInfo.event.startStr,
-      end: clickInfo.event.endStr,
+      end: clickInfo.event.endStr || clickInfo.event.startStr, // Ensure end date is not empty
       location: clickInfo.event.extendedProps.location,
-      category: clickInfo.event.extendedProps.category
+      category: clickInfo.event.extendedProps.category,
+      allDay: clickInfo.event.allDay
     });
     setIsEditing(true);
   };
@@ -86,10 +117,11 @@ const CalendarSection = () => {
       const eventToAdd = {
         title: newEvent.title,
         description: newEvent.description,
-        start_time: newEvent.start,
-        end_time: newEvent.end,
+        start_time: newEvent.allDay ? `${newEvent.start}T00:00:00Z` : newEvent.start,
+        end_time: newEvent.allDay ? `${newEvent.end}T23:59:59Z` : newEvent.end,
         location: newEvent.location,
-        category: newEvent.category
+        category: newEvent.category,
+        all_day: newEvent.allDay
       };
 
       if (isEditing) {
@@ -100,7 +132,7 @@ const CalendarSection = () => {
         if (error) console.error('Error updating event:', error);
         else {
           setEvents(currentEvents => currentEvents.map(event =>
-            event.id === newEvent.id ? { ...event, ...eventToAdd, allDay: !eventToAdd.start_time.includes('T') } : event
+            event.id === newEvent.id ? { ...event, ...eventToAdd, allDay: newEvent.allDay } : event
           ));
         }
       } else {
@@ -115,7 +147,9 @@ const CalendarSection = () => {
             title: data[0].title,
             start: data[0].start_time,
             end: data[0].end_time,
-            allDay: !data[0].start_time.includes('T'), // Determine if it's an all-day event
+            allDay: data[0].all_day,
+            backgroundColor: getCategoryColor(data[0].category),
+            borderColor: getCategoryColor(data[0].category),
             extendedProps: {
               description: data[0].description,
               location: data[0].location,
@@ -127,7 +161,7 @@ const CalendarSection = () => {
       }
 
       setIsModalOpen(false);
-      setNewEvent({ title: '', description: '', start: '', end: '', location: '', category: '' });
+      setNewEvent({ title: '', description: '', start: '', end: '', location: '', category: '', allDay: false });
     }
   };
 
@@ -146,17 +180,12 @@ const CalendarSection = () => {
   };
 
   const handleEventDrop = async (dropInfo) => {
-    console.log('handleEventDrop:', dropInfo);
     const updatedEvent = {
       id: dropInfo.event.id,
-      start_time: dropInfo.event.startStr,
-      end_time: dropInfo.event.endStr || dropInfo.event.startStr // Use start time if end time is empty
+      start_time: dropInfo.event.allDay ? `${dropInfo.event.startStr}T00:00:00Z` : dropInfo.event.startStr,
+      end_time: dropInfo.event.allDay ? `${dropInfo.event.endStr || dropInfo.event.startStr}T23:59:59Z` : dropInfo.event.endStr || dropInfo.event.startStr,
+      all_day: dropInfo.event.allDay
     };
-
-    if (!updatedEvent.start_time) {
-      console.error('Invalid event start time:', updatedEvent);
-      return;
-    }
 
     const { error } = await supabase
       .from('events')
@@ -167,12 +196,14 @@ const CalendarSection = () => {
       console.error('Error updating event:', error);
     } else {
       setEvents(currentEvents => currentEvents.map(event =>
-        event.id === updatedEvent.id 
+        event.id === updatedEvent.id
           ? { 
               ...event, 
               start: updatedEvent.start_time, 
               end: updatedEvent.end_time,
-              allDay: !updatedEvent.start_time.includes('T'), // Determine if it's an all-day event
+              allDay: updatedEvent.all_day,
+              backgroundColor: getCategoryColor(event.extendedProps.category),
+              borderColor: getCategoryColor(event.extendedProps.category),
               extendedProps: {
                 ...event.extendedProps,
                 start_time: updatedEvent.start_time,
@@ -185,17 +216,12 @@ const CalendarSection = () => {
   };
 
   const handleEventResize = async (resizeInfo) => {
-    console.log('handleEventResize:', resizeInfo);
     const updatedEvent = {
       id: resizeInfo.event.id,
-      start_time: resizeInfo.event.startStr,
-      end_time: resizeInfo.event.endStr || resizeInfo.event.startStr // Use start time if end time is empty
+      start_time: resizeInfo.event.allDay ? `${resizeInfo.event.startStr}T00:00:00Z` : resizeInfo.event.startStr,
+      end_time: resizeInfo.event.allDay ? `${resizeInfo.event.endStr || resizeInfo.event.startStr}T23:59:59Z` : resizeInfo.event.endStr || resizeInfo.event.startStr,
+      all_day: resizeInfo.event.allDay
     };
-
-    if (!updatedEvent.start_time) {
-      console.error('Invalid event start time:', updatedEvent);
-      return;
-    }
 
     const { error } = await supabase
       .from('events')
@@ -206,12 +232,14 @@ const CalendarSection = () => {
       console.error('Error updating event:', error);
     } else {
       setEvents(currentEvents => currentEvents.map(event =>
-        event.id === updatedEvent.id 
+        event.id === updatedEvent.id
           ? { 
               ...event, 
               start: updatedEvent.start_time, 
               end: updatedEvent.end_time,
-              allDay: !updatedEvent.start_time.includes('T'), // Determine if it's an all-day event
+              allDay: updatedEvent.all_day,
+              backgroundColor: getCategoryColor(event.extendedProps.category),
+              borderColor: getCategoryColor(event.extendedProps.category),
               extendedProps: {
                 ...event.extendedProps,
                 start_time: updatedEvent.start_time,
@@ -224,17 +252,12 @@ const CalendarSection = () => {
   };
 
   const handleEventChange = async (changeInfo) => {
-    console.log('handleEventChange:', changeInfo);
     const updatedEvent = {
       id: changeInfo.event.id,
-      start_time: changeInfo.event.startStr,
-      end_time: changeInfo.event.endStr || changeInfo.event.startStr // Use start time if end time is empty
+      start_time: changeInfo.event.allDay ? `${changeInfo.event.startStr}T00:00:00Z` : changeInfo.event.startStr,
+      end_time: changeInfo.event.allDay ? `${changeInfo.event.endStr || changeInfo.event.startStr}T23:59:59Z` : changeInfo.event.endStr || changeInfo.event.startStr,
+      all_day: changeInfo.event.allDay
     };
-
-    if (!updatedEvent.start_time) {
-      console.error('Invalid event start time:', updatedEvent);
-      return;
-    }
 
     const { error } = await supabase
       .from('events')
@@ -245,12 +268,14 @@ const CalendarSection = () => {
       console.error('Error updating event:', error);
     } else {
       setEvents(currentEvents => currentEvents.map(event =>
-        event.id === updatedEvent.id 
+        event.id === updatedEvent.id
           ? { 
               ...event, 
               start: updatedEvent.start_time, 
               end: updatedEvent.end_time,
-              allDay: !updatedEvent.start_time.includes('T'), // Determine if it's an all-day event
+              allDay: updatedEvent.all_day,
+              backgroundColor: getCategoryColor(event.extendedProps.category),
+              borderColor: getCategoryColor(event.extendedProps.category),
               extendedProps: {
                 ...event.extendedProps,
                 start_time: updatedEvent.start_time,
@@ -262,38 +287,9 @@ const CalendarSection = () => {
     }
   };
 
-  const handleSearch = async () => {
-    let query = supabase
-      .from('events')
-      .select('*');
-
-    if (searchTerm) {
-      query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
-    }
-
-    if (filterCategory) {
-      query = query.eq('category', filterCategory);
-    }
-
-    const { data, error } = await query;
-
-    if (error) console.error('Error searching events:', error);
-    else {
-      const formattedEvents = data.map(event => ({
-        id: event.id,
-        title: event.title,
-        start: event.start_time,
-        end: event.end_time,
-        allDay: !event.start_time.includes('T'), // Determine if it's an all-day event
-        extendedProps: {
-          description: event.description,
-          location: event.location,
-          category: event.category
-        }
-      }));
-      setEvents(formattedEvents);
-    }
-  };
+  const handleSearch = useCallback(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   return (
     <div className="p-4 bg-white shadow rounded">
@@ -303,20 +299,20 @@ const CalendarSection = () => {
           placeholder="Search events..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyUp={handleSearch}
         />
         <Select value={filterCategory} onValueChange={setFilterCategory}>
           <SelectTrigger>
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
-            {CATEGORIES.map((category) => (
+            {FILTER_CATEGORIES.map((category) => (
               <SelectItem key={category.value} value={category.value}>
                 {category.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Button onClick={handleSearch}>Search</Button>
       </div>
       <FullCalendar
         ref={calendarRef}
@@ -329,8 +325,8 @@ const CalendarSection = () => {
         }}
         events={events.map(event => ({
           ...event,
-          end: event.end || event.start, // Ensure all events have an end time
-          allDay: !event.start.includes('T') // Ensure all-day property is set correctly
+          backgroundColor: getCategoryColor(event.extendedProps.category),
+          borderColor: getCategoryColor(event.extendedProps.category),
         }))}
         selectable={true}
         select={handleDateSelect}
@@ -342,6 +338,13 @@ const CalendarSection = () => {
         eventResizableFromStart={true}
         height="auto"
         timeZone="Asia/Kolkata"
+        dayMaxEvents={2} // limit the number of events per day
+        moreLinkClick="popover" // show popover with more events
+        eventTimeFormat={{
+          hour: 'numeric',
+          minute: '2-digit',
+          meridiem: 'short' // This will show AM and PM
+        }}
       />
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
@@ -391,6 +394,7 @@ const CalendarSection = () => {
                 </SelectContent>
               </Select>
             </div>
+    
           </div>
           <DialogFooter>
             {isEditing && (
