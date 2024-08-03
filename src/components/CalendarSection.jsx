@@ -26,13 +26,13 @@ const FILTER_CATEGORIES = [
 const getCategoryColor = (category) => {
   switch (category) {
     case 'shoot':
-      return '#ff6347'; // Tomato
+      return '#f06543'; 
     case 'meeting':
-      return '#4682b4'; // SteelBlue
+      return '#0582ca'; 
     case 'other':
-      return '#2e8b57'; // SeaGreen
+      return '#49a078'; 
     default:
-      return '#2e8b57'; // SeaGreen
+      return '#6c757d'; 
   }
 };
 
@@ -43,6 +43,7 @@ const CalendarSection = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [errors, setErrors] = useState({ title: '', category: '' });
   const calendarRef = useRef(null);
 
   const fetchEvents = useCallback(async () => {
@@ -112,8 +113,26 @@ const CalendarSection = () => {
     setIsEditing(true);
   };
 
+  const validateEvent = () => {
+    let isValid = true;
+    const newErrors = { title: '', category: '' };
+
+    if (!newEvent.title) {
+      newErrors.title = 'Event title is required.';
+      isValid = false;
+    }
+
+    if (!newEvent.category) {
+      newErrors.category = 'Event category is required.';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleEventAdd = async () => {
-    if (newEvent.title) {
+    if (validateEvent()) {
       const eventToAdd = {
         title: newEvent.title,
         description: newEvent.description,
@@ -132,7 +151,19 @@ const CalendarSection = () => {
         if (error) console.error('Error updating event:', error);
         else {
           setEvents(currentEvents => currentEvents.map(event =>
-            event.id === newEvent.id ? { ...event, ...eventToAdd, allDay: newEvent.allDay } : event
+            event.id === newEvent.id 
+              ? { 
+                  ...event, 
+                  ...eventToAdd, 
+                  allDay: newEvent.allDay,
+                  backgroundColor: getCategoryColor(newEvent.category),
+                  borderColor: getCategoryColor(newEvent.category),
+                  extendedProps: {
+                    ...event.extendedProps,
+                    ...eventToAdd
+                  }
+                } 
+              : event
           ));
         }
       } else {
@@ -256,7 +287,8 @@ const CalendarSection = () => {
       id: changeInfo.event.id,
       start_time: changeInfo.event.allDay ? `${changeInfo.event.startStr}T00:00:00Z` : changeInfo.event.startStr,
       end_time: changeInfo.event.allDay ? `${changeInfo.event.endStr || changeInfo.event.startStr}T23:59:59Z` : changeInfo.event.endStr || changeInfo.event.startStr,
-      all_day: changeInfo.event.allDay
+      all_day: changeInfo.event.allDay,
+      category: changeInfo.event.extendedProps.category
     };
 
     const { error } = await supabase
@@ -274,12 +306,13 @@ const CalendarSection = () => {
               start: updatedEvent.start_time, 
               end: updatedEvent.end_time,
               allDay: updatedEvent.all_day,
-              backgroundColor: getCategoryColor(event.extendedProps.category),
-              borderColor: getCategoryColor(event.extendedProps.category),
+              backgroundColor: getCategoryColor(updatedEvent.category),
+              borderColor: getCategoryColor(updatedEvent.category),
               extendedProps: {
                 ...event.extendedProps,
                 start_time: updatedEvent.start_time,
-                end_time: updatedEvent.end_time
+                end_time: updatedEvent.end_time,
+                category: updatedEvent.category
               }
             }
           : event
@@ -338,6 +371,8 @@ const CalendarSection = () => {
         eventResizableFromStart={true}
         height="auto"
         timeZone="Asia/Kolkata"
+        handleWindowResize={true} // Automatically resize when the browser window resizes
+        stickyHeaderDates={true} // Sticky header for week and day views
         dayMaxEvents={2} // limit the number of events per day
         moreLinkClick="popover" // show popover with more events
         eventTimeFormat={{
@@ -359,6 +394,7 @@ const CalendarSection = () => {
                 value={newEvent.title}
                 onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
               />
+              {errors.title && <p className="text-red-500">{errors.title}</p>}
             </div>
             <div>
               <Label htmlFor="description">Description</Label>
@@ -393,8 +429,8 @@ const CalendarSection = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {errors.category && <p className="text-red-500">{errors.category}</p>}
             </div>
-    
           </div>
           <DialogFooter>
             {isEditing && (

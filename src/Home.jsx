@@ -7,7 +7,7 @@ import {
   ReceiptText,
   Bell,
   Calendar,
-  DollarSign,
+  ReceiptIndianRupee,
 } from "lucide-react";
 import Billing from "./components/Billing";
 import BillReminders from "./components/BillReminders";
@@ -27,7 +27,7 @@ const HomeComponent = () => {
   };
 
   const sidebarVariants = {
-    expanded: { width: 210 },
+    expanded: { width: 180 },
     collapsed: { width: 80 },
   };
 
@@ -38,9 +38,9 @@ const HomeComponent = () => {
 
   const navItems = [
     { path: "billing", icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Billing" },
-    { path: "bill-reminders", icon: <Bell className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Notifications" },
+    // { path: "bill-reminders", icon: <Bell className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Notifications" },
     { path: "calendar", icon: <Calendar className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Calendar" },
-    { path: "monthly-expenses", icon: <DollarSign className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Expenses" },
+    { path: "monthly-expenses", icon: <ReceiptIndianRupee className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Expenses" },
   ];
 
   return (
@@ -50,7 +50,7 @@ const HomeComponent = () => {
         animate={isCollapsed ? "collapsed" : "expanded"}
         variants={sidebarVariants}
         initial="collapsed"
-        transition={{ duration: 0.2 }} // Increased speed
+        transition={{ duration: 0.1 }} // Increased speed
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -74,7 +74,7 @@ const HomeComponent = () => {
                         animate="visible"
                         exit="hidden"
                         variants={textVariants}
-                        transition={{ duration: 0.2 }} // Increased speed
+                        transition={{ duration: 0.1 }} // Increased speed
                       >
                         {item.label}
                       </motion.span>
