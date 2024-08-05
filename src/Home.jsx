@@ -3,16 +3,11 @@ import { Link, Route, Routes, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  ReceiptText,
-  Bell,
-  Calendar,
-  ReceiptIndianRupee,
-} from "lucide-react";
+import { ReceiptText, Bell, Calendar, ReceiptIndianRupee } from "lucide-react";
 import Billing from "./components/Billing";
 import BillReminders from "./components/BillReminders";
 import CalendarSection from "./components/CalendarSection";
-import MonthlyExpenses from "./components/MonthlyExpenses";
+import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
 
 const HomeComponent = () => {
   const location = useLocation();
@@ -33,20 +28,32 @@ const HomeComponent = () => {
 
   const textVariants = {
     hidden: { opacity: 0, width: 0 },
-    visible: { opacity: 1, width: 'auto' },
+    visible: { opacity: 1, width: "auto" },
   };
 
   const navItems = [
-    { path: "billing", icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Billing" },
+    {
+      path: "billing",
+      icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />,
+      label: "Billing",
+    },
     // { path: "bill-reminders", icon: <Bell className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Notifications" },
-    { path: "calendar", icon: <Calendar className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Calendar" },
-    { path: "monthly-expenses", icon: <ReceiptIndianRupee className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Expenses" },
+    {
+      path: "calendar",
+      icon: <Calendar className="w-6 h-6 -ml-1 flex-shrink-0" />,
+      label: "Calendar",
+    },
+    {
+      path: "monthly-expenses",
+      icon: <ReceiptIndianRupee className="w-6 h-6 -ml-1 flex-shrink-0" />,
+      label: "Expenses",
+    },
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen  " >
       <motion.div
-        className="h-full bg-white shadow-md flex flex-col justify-between absolute z-10"
+        className="h-full bg-white shadow-md flex flex-col justify-between absolute z-20"
         animate={isCollapsed ? "collapsed" : "expanded"}
         variants={sidebarVariants}
         initial="collapsed"
@@ -62,10 +69,15 @@ const HomeComponent = () => {
                 asChild
                 variant="ghost"
                 className={`w-full justify-start ${
-                  location.pathname === `/home/${item.path}` ? "bg-gray-200" : "hover:bg-gray-100"
+                  location.pathname === `/home/${item.path}`
+                    ? "bg-gray-200"
+                    : "hover:bg-gray-100"
                 }`}
               >
-                <Link to={item.path} className="w-full text-left flex items-center space-x-2">
+                <Link
+                  to={item.path}
+                  className="w-full text-left flex items-center space-x-2"
+                >
                   {item.icon}
                   <AnimatePresence>
                     {!isCollapsed && (

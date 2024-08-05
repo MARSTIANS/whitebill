@@ -11,6 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { supabase } from '../supabase';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardDescription,
+  CardTitle,
+} from "@/components/ui/card";
 
 const CATEGORIES = [
   { value: 'shoot', label: 'Shoot' },
@@ -325,8 +332,9 @@ const CalendarSection = () => {
   }, [fetchEvents]);
 
   return (
-    <div className="p-4 bg-white shadow rounded">
-      <h2 className="text-2xl font-bold mb-4">Calendar</h2>
+    <div >
+      <h2 className="text-2xl font-bold mb-4">Event Calendar</h2>
+      <Card className="bg-gray-50 p-4">
       <div className="mb-4 flex space-x-2">
         <Input
           placeholder="Search events..."
@@ -347,6 +355,7 @@ const CalendarSection = () => {
           </SelectContent>
         </Select>
       </div>
+      <div className="bg-white shadow-none "> 
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
@@ -380,7 +389,7 @@ const CalendarSection = () => {
           minute: '2-digit',
           meridiem: 'short' // This will show AM and PM
         }}
-      />
+      /> </div>
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -440,6 +449,7 @@ const CalendarSection = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </Card>
     </div>
   );
 };
