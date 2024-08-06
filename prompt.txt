@@ -477,83 +477,606 @@ export function CheckboxDemo() {
 }
 
 
-
-MONEY EXPENSES :
-
-### Instruction ###
-
-Your task is to enhance the MonthlyExpenses.jsx by implementing the following updates:
+,
 
 
+CalendarSection.jsx :
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
+import interactionPlugin from '@fullcalendar/interaction';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { supabase } from '../supabase';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardDescription,
+  CardTitle,
+} from "@/components/ui/card";
 
+const CATEGORIES = [
+  { value: 'shoot', label: 'Shoot' },
+  { value: 'meeting', label: 'Meeting' },
+  { value: 'other', label: 'Other' },
+];
 
-3. **Date Range Picker for Filtering**:
-    - Replace the current start and end date filtering with a Shadcn Date Range Picker for improved date selection.
-    - Example implementation:
+const FILTER_CATEGORIES = [
+  { value: 'all', label: 'All' },
+  ...CATEGORIES,
+];
 
-    ```jsx
-    import * as React from "react"
-    import { addDays, format } from "date-fns"
-    import { Calendar as CalendarIcon } from "lucide-react"
-    import { DateRange } from "react-day-picker"
-    
-    import { cn } from "@/lib/utils"
-    import { Button } from "@/components/ui/button"
-    import { Calendar } from "@/components/ui/calendar"
-    import {
-      Popover,
-      PopoverContent,
-      PopoverTrigger,
-    } from "@/components/ui/popover"
+const getCategoryColor = (category) => {
+  switch (category) {
+    case 'shoot':
+      return '#f06543'; 
+    case 'meeting':
+      return '#0582ca'; 
+    case 'other':
+      return '#f48c06'; 
+    default:
+      return '#6c757d'; 
+  }
+};
 
-    export function DatePickerWithRange({
-      className,
-    }: React.HTMLAttributes<HTMLDivElement>) {
-      const [date, setDate] = React.useState<DateRange | undefined>({
-        from: new Date(2022, 0, 20),
-        to: addDays(new Date(2022, 0, 20), 20),
-      })
+const CalendarSection = () => {
+  const [events, setEvents] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newEvent, setNewEvent] = useState({ title: '', description: '', start: '', end: '', location: '', category: '', allDay: false });
+  const [isEditing, setIsEditing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [errors, setErrors] = useState({ title: '', category: '' });
+  const calendarRef = useRef(null);
 
-      return (
-        <div className={cn("grid gap-2", className)}>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                id="date"
-                variant={"outline"}
-                className={cn(
-                  "w-[300px] justify-start text-left font-normal",
-                  !date && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, "LLL dd, y")} -{" "}
-                      {format(date.to, "LLL dd, y")}
-                    </>
-                  ) : (
-                    format(date.from, "LLL dd, y")
-                  )
-                ) : (
-                  <span>Pick a date</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      )
+  const fetchEvents = useCallback(async () => {
+    let query = supabase.from('events').select('*');
+
+    if (searchTerm) {
+      query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
     }
-    ```
 
+    if (filterCategory && filterCategory !== 'all') {
+      query = query.eq('category', filterCategory);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching events:', error);
+    } else {
+      const formattedEvents = data.map(event => ({
+        id: event.id,
+        title: event.title,
+        start: event.start_time,
+        end: event.end_time,
+        allDay: event.all_day,
+        backgroundColor: getCategoryColor(event.category),
+        borderColor: getCategoryColor(event.category),
+        extendedProps: {
+          description: event.description,
+          location: event.location,
+          category: event.category
+        }
+      }));
+      setEvents(formattedEvents);
+    }
+  }, [searchTerm, filterCategory]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const handleDateSelect = (selectInfo) => {
+    setIsModalOpen(true);
+    setNewEvent({
+      title: '',
+      description: '',
+      start: selectInfo.startStr,
+      end: selectInfo.endStr || selectInfo.startStr, // Ensure end date is not empty
+      location: '',
+      category: '',
+      allDay: selectInfo.allDay
+    });
+    setIsEditing(false);
+  };
+
+  const handleEventClick = (clickInfo) => {
+    setIsModalOpen(true);
+    setNewEvent({
+      id: clickInfo.event.id,
+      title: clickInfo.event.title,
+      description: clickInfo.event.extendedProps.description,
+      start: clickInfo.event.startStr,
+      end: clickInfo.event.endStr || clickInfo.event.startStr, // Ensure end date is not empty
+      location: clickInfo.event.extendedProps.location,
+      category: clickInfo.event.extendedProps.category,
+      allDay: clickInfo.event.allDay
+    });
+    setIsEditing(true);
+  };
+
+  const validateEvent = () => {
+    let isValid = true;
+    const newErrors = { title: '', category: '' };
+
+    if (!newEvent.title) {
+      newErrors.title = 'Event title is required.';
+      isValid = false;
+    }
+
+    if (!newEvent.category) {
+      newErrors.category = 'Event category is required.';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleEventAdd = async () => {
+    if (validateEvent()) {
+      const eventToAdd = {
+        title: newEvent.title,
+        description: newEvent.description,
+        start_time: newEvent.allDay ? `${newEvent.start}T00:00:00Z` : newEvent.start,
+        end_time: newEvent.allDay ? `${newEvent.end}T23:59:59Z` : newEvent.end,
+        location: newEvent.location,
+        category: newEvent.category,
+        all_day: newEvent.allDay
+      };
+
+      if (isEditing) {
+        const { error } = await supabase
+          .from('events')
+          .update(eventToAdd)
+          .eq('id', newEvent.id);
+        if (error) console.error('Error updating event:', error);
+        else {
+          setEvents(currentEvents => currentEvents.map(event =>
+            event.id === newEvent.id 
+              ? { 
+                  ...event, 
+                  ...eventToAdd, 
+                  allDay: newEvent.allDay,
+                  backgroundColor: getCategoryColor(newEvent.category),
+                  borderColor: getCategoryColor(newEvent.category),
+                  extendedProps: {
+                    ...event.extendedProps,
+                    ...eventToAdd
+                  }
+                } 
+              : event
+          ));
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('events')
+          .insert([eventToAdd])
+          .select();
+        if (error) console.error('Error adding event:', error);
+        else {
+          const newFormattedEvent = {
+            id: data[0].id,
+            title: data[0].title,
+            start: data[0].start_time,
+            end: data[0].end_time,
+            allDay: data[0].all_day,
+            backgroundColor: getCategoryColor(data[0].category),
+            borderColor: getCategoryColor(data[0].category),
+            extendedProps: {
+              description: data[0].description,
+              location: data[0].location,
+              category: data[0].category
+            }
+          };
+          setEvents(currentEvents => [...currentEvents, newFormattedEvent]);
+        }
+      }
+
+      setIsModalOpen(false);
+      setNewEvent({ title: '', description: '', start: '', end: '', location: '', category: '', allDay: false });
+    }
+  };
+
+  const handleEventDelete = async () => {
+    if (isEditing && newEvent.id) {
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', newEvent.id);
+      if (error) console.error('Error deleting event:', error);
+      else {
+        setIsModalOpen(false);
+        setEvents(currentEvents => currentEvents.filter(event => event.id !== newEvent.id));
+      }
+    }
+  };
+
+  const handleEventDrop = async (dropInfo) => {
+    const updatedEvent = {
+      id: dropInfo.event.id,
+      start_time: dropInfo.event.allDay ? `${dropInfo.event.startStr}T00:00:00Z` : dropInfo.event.startStr,
+      end_time: dropInfo.event.allDay ? `${dropInfo.event.endStr || dropInfo.event.startStr}T23:59:59Z` : dropInfo.event.endStr || dropInfo.event.startStr,
+      all_day: dropInfo.event.allDay
+    };
+
+    const { error } = await supabase
+      .from('events')
+      .update(updatedEvent)
+      .eq('id', updatedEvent.id);
+
+    if (error) {
+      console.error('Error updating event:', error);
+    } else {
+      setEvents(currentEvents => currentEvents.map(event =>
+        event.id === updatedEvent.id
+          ? { 
+              ...event, 
+              start: updatedEvent.start_time, 
+              end: updatedEvent.end_time,
+              allDay: updatedEvent.all_day,
+              backgroundColor: getCategoryColor(event.extendedProps.category),
+              borderColor: getCategoryColor(event.extendedProps.category),
+              extendedProps: {
+                ...event.extendedProps,
+                start_time: updatedEvent.start_time,
+                end_time: updatedEvent.end_time
+              }
+            }
+          : event
+      ));
+    }
+  };
+
+  const handleEventResize = async (resizeInfo) => {
+    const updatedEvent = {
+      id: resizeInfo.event.id,
+      start_time: resizeInfo.event.allDay ? `${resizeInfo.event.startStr}T00:00:00Z` : resizeInfo.event.startStr,
+      end_time: resizeInfo.event.allDay ? `${resizeInfo.event.endStr || resizeInfo.event.startStr}T23:59:59Z` : resizeInfo.event.endStr || resizeInfo.event.startStr,
+      all_day: resizeInfo.event.allDay
+    };
+
+    const { error } = await supabase
+      .from('events')
+      .update(updatedEvent)
+      .eq('id', updatedEvent.id);
+
+    if (error) {
+      console.error('Error updating event:', error);
+    } else {
+      setEvents(currentEvents => currentEvents.map(event =>
+        event.id === updatedEvent.id
+          ? { 
+              ...event, 
+              start: updatedEvent.start_time, 
+              end: updatedEvent.end_time,
+              allDay: updatedEvent.all_day,
+              backgroundColor: getCategoryColor(event.extendedProps.category),
+              borderColor: getCategoryColor(event.extendedProps.category),
+              extendedProps: {
+                ...event.extendedProps,
+                start_time: updatedEvent.start_time,
+                end_time: updatedEvent.end_time
+              }
+            }
+          : event
+      ));
+    }
+  };
+
+  const handleEventChange = async (changeInfo) => {
+    const updatedEvent = {
+      id: changeInfo.event.id,
+      start_time: changeInfo.event.allDay ? `${changeInfo.event.startStr}T00:00:00Z` : changeInfo.event.startStr,
+      end_time: changeInfo.event.allDay ? `${changeInfo.event.endStr || changeInfo.event.startStr}T23:59:59Z` : changeInfo.event.endStr || changeInfo.event.startStr,
+      all_day: changeInfo.event.allDay,
+      category: changeInfo.event.extendedProps.category
+    };
+
+    const { error } = await supabase
+      .from('events')
+      .update(updatedEvent)
+      .eq('id', updatedEvent.id);
+
+    if (error) {
+      console.error('Error updating event:', error);
+    } else {
+      setEvents(currentEvents => currentEvents.map(event =>
+        event.id === updatedEvent.id
+          ? { 
+              ...event, 
+              start: updatedEvent.start_time, 
+              end: updatedEvent.end_time,
+              allDay: updatedEvent.all_day,
+              backgroundColor: getCategoryColor(updatedEvent.category),
+              borderColor: getCategoryColor(updatedEvent.category),
+              extendedProps: {
+                ...event.extendedProps,
+                start_time: updatedEvent.start_time,
+                end_time: updatedEvent.end_time,
+                category: updatedEvent.category
+              }
+            }
+          : event
+      ));
+    }
+  };
+
+  const handleSearch = useCallback(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  return (
+    <div >
+      <h2 className="text-2xl font-bold mb-4">Event Calendar</h2>
+      <Card className="bg-gray-50 p-4">
+      <div className="mb-4 flex space-x-2">
+        <Input
+          placeholder="Search events..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyUp={handleSearch}
+        />
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            {FILTER_CATEGORIES.map((category) => (
+              <SelectItem key={category.value} value={category.value}>
+                {category.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="bg-white shadow-none "> 
+      <FullCalendar
+        ref={calendarRef}
+        plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+        initialView="dayGridMonth"
+        headerToolbar={{
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,timeGridWeek,timeGridDay,listYear'
+        }}
+        events={events.map(event => ({
+          ...event,
+          backgroundColor: getCategoryColor(event.extendedProps.category),
+          borderColor: getCategoryColor(event.extendedProps.category),
+        }))}
+        selectable={true}
+        select={handleDateSelect}
+        eventClick={handleEventClick}
+        editable={true}
+        eventDrop={handleEventDrop}
+        eventResize={handleEventResize}
+        eventChange={handleEventChange}
+        eventResizableFromStart={true}
+        height="auto"
+        timeZone="Asia/Kolkata"
+        handleWindowResize={true} // Automatically resize when the browser window resizes
+        stickyHeaderDates={true} // Sticky header for week and day views
+        dayMaxEvents={2} // limit the number of events per day
+        moreLinkClick="popover" // show popover with more events
+        eventTimeFormat={{
+          hour: 'numeric',
+          minute: '2-digit',
+          meridiem: 'short' // This will show AM and PM
+        }}
+      /> </div>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEditing ? 'Edit Event' : 'Add New Event'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Event Title</Label>
+              <Input
+                id="title"
+                value={newEvent.title}
+                onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+              />
+              {errors.title && <p className="text-red-500">{errors.title}</p>}
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={newEvent.description}
+                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={newEvent.location}
+                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="category">Category</Label>
+              <Select
+                value={newEvent.category}
+                onValueChange={(value) => setNewEvent({ ...newEvent, category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((category) => (
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.category && <p className="text-red-500">{errors.category}</p>}
+            </div>
+          </div>
+          <DialogFooter>
+            {isEditing && (
+              <Button variant="destructive" onClick={handleEventDelete}>Delete</Button>
+            )}
+            <Button onClick={handleEventAdd}>{isEditing ? 'Update' : 'Add'} Event</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      </Card>
+    </div>
+  );
+};
+
+export default CalendarSection;
+,SUPABASE TABLE :
+create table
+  public.events (
+    id uuid not null default extensions.uuid_generate_v4 (),
+    title text not null,
+    description text null,
+    start_time timestamp with time zone not null,
+    end_time timestamp with time zone not null,
+    location text null,
+    category text null,
+    all_day boolean null default false,
+    constraint events_pkey primary key (id)
+  ) tablespace pg_default;
+
+create index if not exists idx_events_title_description on public.events using gin (
+  to_tsvector(
+    'english'::regconfig,
+    ((title || ' '::text) || description)
+  )
+) tablespace pg_default;
+
+create index if not exists idx_events_start_end on public.events using btree (start_time, end_time) tablespace pg_default;
+,
+create table
+  public.clients (
+    id uuid not null default extensions.uuid_generate_v4 (),
+    name text not null,
+    company_name text null,
+    phone_number text null,
+    location text null,
+    client_name text null,
+    constraint clients_pkey primary key (id)
+  ) tablespace pg_default;
+
+create index if not exists idx_events_category on public.events using btree (category) tablespace pg_default;
+,
+This project is built using React, Tailwind CSS, ShadCN, Supabase, and Full Calendar. I need to implement the following updates:
+
+1. **Mark as Done Checkbox**: Add a checkbox to the edit dialog box that, when selected, changes the event color to green and updates the Supabase table accordingly.
+
+2. **Client Name Combobox**: 
+   - **Add/Edit Event Dialog**: Include a ShadCN Combobox in both the add and edit dialog boxes that fetches client names from the Supabase table `clients`. Update the Supabase `events` table to store the selected client name.
+
+3. **Client Name Filter**: Add a new ShadCN Combobox filter that displays client names. When a client name is selected, filter the events based on the chosen client.
+i will also provide the shad cn Combobox example below :
+
+
+import * as React from "react"
+import { Check, ChevronsUpDown } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+
+const frameworks = [
+  {
+    value: "next.js",
+    label: "Next.js",
+  },
+  {
+    value: "sveltekit",
+    label: "SvelteKit",
+  },
+  {
+    value: "nuxt.js",
+    label: "Nuxt.js",
+  },
+  {
+    value: "remix",
+    label: "Remix",
+  },
+  {
+    value: "astro",
+    label: "Astro",
+  },
+]
+
+export function ComboboxDemo() {
+  const [open, setOpen] = React.useState(false)
+  const [value, setValue] = React.useState("")
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-[200px] justify-between"
+        >
+          {value
+            ? frameworks.find((framework) => framework.value === value)?.label
+            : "Select framework..."}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0">
+        <Command>
+          <CommandInput placeholder="Search framework..." />
+          <CommandList>
+            <CommandEmpty>No framework found.</CommandEmpty>
+            <CommandGroup>
+              {frameworks.map((framework) => (
+                <CommandItem
+                  key={framework.value}
+                  value={framework.value}
+                  onSelect={(currentValue) => {
+                    setValue(currentValue === value ? "" : currentValue)
+                    setOpen(false)
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === framework.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {framework.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+,
+
+Please provide the updated `CalendarSection` and Supabase table structure reflecting these changes.

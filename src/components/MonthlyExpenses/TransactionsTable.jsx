@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import dayjs from "dayjs";
+import DownloadButton from "./DownloadButton";
 
 const TransactionsTable = ({
   transactions,
@@ -29,9 +30,12 @@ const TransactionsTable = ({
   handleDeleteTransaction,
 }) => (
   <Card className="bg-gray-50">
-    <CardHeader>
-      <CardTitle>Transactions</CardTitle>
-      <CardDescription>A list of recent transactions.</CardDescription>
+  <CardHeader className="flex flex-row justify-between items-center ">
+      <div>
+        <CardTitle>Transactions</CardTitle>
+        <CardDescription>A list of recent transactions.</CardDescription>
+      </div>
+      <DownloadButton transactions={transactions} />
     </CardHeader>
     <CardContent className="h-[480px] overflow-hidden">
       <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -143,6 +147,7 @@ const TransactionsTable = ({
           </table>
         </div>
       </div>
+     
     </CardContent>
   </Card>
 );

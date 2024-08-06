@@ -3,11 +3,12 @@ import { Link, Route, Routes, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ReceiptText, Bell, Calendar, ReceiptIndianRupee } from "lucide-react";
+import { ReceiptText, Bell, Calendar, ReceiptIndianRupee, Users } from "lucide-react"; // Added Users icon
 import Billing from "./components/Billing";
-import BillReminders from "./components/BillReminders";
+
 import CalendarSection from "./components/CalendarSection";
 import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
+import Clients from "./components/Clients"; // Import Clients component
 
 const HomeComponent = () => {
   const location = useLocation();
@@ -48,16 +49,21 @@ const HomeComponent = () => {
       icon: <ReceiptIndianRupee className="w-6 h-6 -ml-1 flex-shrink-0" />,
       label: "Expenses",
     },
+    {
+      path: "clients",
+      icon: <Users className="w-6 h-6 -ml-1 flex-shrink-0" />, // New icon for Clients
+      label: "Clients",
+    },
   ];
 
   return (
-    <div className="flex h-screen  " >
+    <div className="flex h-screen">
       <motion.div
         className="h-full bg-white shadow-md flex flex-col justify-between absolute z-20"
         animate={isCollapsed ? "collapsed" : "expanded"}
         variants={sidebarVariants}
         initial="collapsed"
-        transition={{ duration: 0.1 }} // Increased speed
+        transition={{ duration: 0.1 }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -86,7 +92,7 @@ const HomeComponent = () => {
                         animate="visible"
                         exit="hidden"
                         variants={textVariants}
-                        transition={{ duration: 0.1 }} // Increased speed
+                        transition={{ duration: 0.1 }}
                       >
                         {item.label}
                       </motion.span>
@@ -101,9 +107,10 @@ const HomeComponent = () => {
       <div className="flex-1 p-6 overflow-auto ml-20">
         <Routes>
           <Route path="billing" element={<Billing />} />
-          <Route path="bill-reminders" element={<BillReminders />} />
+ 
           <Route path="calendar" element={<CalendarSection />} />
           <Route path="monthly-expenses" element={<MonthlyExpenses />} />
+          <Route path="clients" element={<Clients />} /> {/* New route for Clients */}
         </Routes>
       </div>
     </div>
