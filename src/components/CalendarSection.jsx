@@ -1,22 +1,31 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import listPlugin from '@fullcalendar/list';
-import interactionPlugin from '@fullcalendar/interaction';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import listPlugin from "@fullcalendar/list";
+import interactionPlugin from "@fullcalendar/interaction";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from '../supabase';
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import { cn } from "@/lib/utils"
+import { supabase } from "../supabase";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import {
   Command,
   CommandEmpty,
@@ -31,67 +40,70 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { useReactToPrint } from 'react-to-print';
+import { useReactToPrint } from "react-to-print";
 
 const CATEGORIES = [
-  { value: 'shoot', label: 'Shoot' },
-  { value: 'meeting', label: 'Meeting' },
-  { value: 'post', label: 'Post' },
+  { value: "shoot", label: "Shoot" },
+  { value: "meeting", label: "Meeting" },
+  { value: "post", label: "Post" },
 ];
 
-const FILTER_CATEGORIES = [
-  { value: 'all', label: 'All' },
-  ...CATEGORIES,
-];
+const FILTER_CATEGORIES = [{ value: "all", label: "All" }, ...CATEGORIES];
 
 const getCategoryColor = (category, isDone) => {
-  if (isDone) return '#4caf50';
+  if (isDone) return "#4caf50";
   switch (category) {
-    case 'shoot':
-      return '#f06543'; 
-    case 'meeting':
-      return '#0582ca'; 
-    case 'post':
-      return '#f48c06'; 
+    case "shoot":
+      return "#f06543";
+    case "meeting":
+      return "#0582ca";
+    case "post":
+      return "#f48c06";
     default:
-      return '#6c757d'; 
+      return "#6c757d";
   }
 };
 
 const CalendarSection = () => {
   const [events, setEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({ 
-    title: '', 
-    description: '', 
-    start: '', 
-    end: '', 
-    location: '', 
-    category: '', 
-    allDay: false, 
+  const [newEvent, setNewEvent] = useState({
+    title: "",
+    description: "",
+    start: "",
+    end: "",
+    location: "",
+    category: "",
+    allDay: false,
     isDone: false,
-    clientName: ''
+    clientName: "",
   });
   const [isEditing, setIsEditing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterClientName, setFilterClientName] = useState('');
-  const [errors, setErrors] = useState({ title: '', category: '' });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterClientName, setFilterClientName] = useState("");
+  const [printClientName, setPrintClientName] = useState("");
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [errors, setErrors] = useState({ title: "", category: "" });
   const [clients, setClients] = useState([]);
   const [openClientCombobox, setOpenClientCombobox] = useState(false);
-  const [printClientName, setPrintClientName] = useState('');
   const calendarComponentRef = useRef(null);
   const calendarRef = useRef(null);
 
   const fetchClients = async () => {
     const { data, error } = await supabase
-      .from('clients')
-      .select('client_name')
-      .order('client_name');
+      .from("clients")
+      .select("client_name")
+      .order("client_name");
     if (error) {
-      console.error('Error fetching clients:', error);
+      console.error("Error fetching clients:", error);
     } else {
-      setClients(data.map(client => ({ value: client.client_name, label: client.client_name })));
+      setClients(
+        data.map((client) => ({
+          value: client.client_name,
+          label: client.client_name,
+        }))
+      );
     }
   };
 
@@ -107,26 +119,28 @@ const CalendarSection = () => {
   }, [events, filterCategory, filterClientName]);
 
   const fetchEvents = useCallback(async () => {
-    let query = supabase.from('events').select('*');
+    let query = supabase.from("events").select("*");
 
     if (searchTerm) {
-      query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%`);
+      query = query.or(
+        `title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%`
+      );
     }
 
-    if (filterCategory && filterCategory !== 'all') {
-      query = query.eq('category', filterCategory);
+    if (filterCategory && filterCategory !== "all") {
+      query = query.eq("category", filterCategory);
     }
 
     if (filterClientName) {
-      query = query.eq('client_name', filterClientName);
+      query = query.eq("client_name", filterClientName);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching events:', error);
+      console.error("Error fetching events:", error);
     } else {
-      const formattedEvents = data.map(event => ({
+      const formattedEvents = data.map((event) => ({
         id: event.id,
         title: event.title,
         start: event.start_time,
@@ -139,8 +153,8 @@ const CalendarSection = () => {
           location: event.location,
           category: event.category,
           isDone: event.is_done,
-          clientName: event.client_name
-        }
+          clientName: event.client_name,
+        },
       }));
       setEvents(formattedEvents);
     }
@@ -153,15 +167,15 @@ const CalendarSection = () => {
   const handleDateSelect = (selectInfo) => {
     setIsModalOpen(true);
     setNewEvent({
-      title: '',
-      description: '',
+      title: "",
+      description: "",
       start: selectInfo.startStr,
       end: selectInfo.endStr || selectInfo.startStr,
-      location: '',
-      category: '',
+      location: "",
+      category: "",
       allDay: selectInfo.allDay,
       isDone: false,
-      clientName: ''
+      clientName: "",
     });
     setIsEditing(false);
   };
@@ -178,22 +192,22 @@ const CalendarSection = () => {
       category: clickInfo.event.extendedProps.category,
       allDay: clickInfo.event.allDay,
       isDone: clickInfo.event.extendedProps.isDone,
-      clientName: clickInfo.event.extendedProps.clientName
+      clientName: clickInfo.event.extendedProps.clientName,
     });
     setIsEditing(true);
   };
 
   const validateEvent = () => {
     let isValid = true;
-    const newErrors = { title: '', category: '' };
+    const newErrors = { title: "", category: "" };
 
     if (!newEvent.title) {
-      newErrors.title = 'Event title is required.';
+      newErrors.title = "Event title is required.";
       isValid = false;
     }
 
     if (!newEvent.category) {
-      newErrors.category = 'Event category is required.';
+      newErrors.category = "Event category is required.";
       isValid = false;
     }
 
@@ -206,46 +220,56 @@ const CalendarSection = () => {
       const eventToAdd = {
         title: newEvent.title,
         description: newEvent.description,
-        start_time: newEvent.allDay ? `${newEvent.start}T00:00:00Z` : newEvent.start,
+        start_time: newEvent.allDay
+          ? `${newEvent.start}T00:00:00Z`
+          : newEvent.start,
         end_time: newEvent.allDay ? `${newEvent.end}T23:59:59Z` : newEvent.end,
         location: newEvent.location,
         category: newEvent.category,
         all_day: newEvent.allDay,
         is_done: newEvent.isDone,
-        client_name: newEvent.clientName
+        client_name: newEvent.clientName,
       };
 
       if (isEditing) {
         const { error } = await supabase
-          .from('events')
+          .from("events")
           .update(eventToAdd)
-          .eq('id', newEvent.id);
-        if (error) console.error('Error updating event:', error);
+          .eq("id", newEvent.id);
+        if (error) console.error("Error updating event:", error);
         else {
-          setEvents(currentEvents => currentEvents.map(event =>
-            event.id === newEvent.id 
-              ? { 
-                  ...event, 
-                  ...eventToAdd, 
-                  allDay: newEvent.allDay,
-                  backgroundColor: getCategoryColor(newEvent.category, newEvent.isDone),
-                  borderColor: getCategoryColor(newEvent.category, newEvent.isDone),
-                  extendedProps: {
-                    ...event.extendedProps,
+          setEvents((currentEvents) =>
+            currentEvents.map((event) =>
+              event.id === newEvent.id
+                ? {
+                    ...event,
                     ...eventToAdd,
-                    isDone: newEvent.isDone,
-                    clientName: newEvent.clientName
+                    allDay: newEvent.allDay,
+                    backgroundColor: getCategoryColor(
+                      newEvent.category,
+                      newEvent.isDone
+                    ),
+                    borderColor: getCategoryColor(
+                      newEvent.category,
+                      newEvent.isDone
+                    ),
+                    extendedProps: {
+                      ...event.extendedProps,
+                      ...eventToAdd,
+                      isDone: newEvent.isDone,
+                      clientName: newEvent.clientName,
+                    },
                   }
-                } 
-              : event
-          ));
+                : event
+            )
+          );
         }
       } else {
         const { data, error } = await supabase
-          .from('events')
+          .from("events")
           .insert([eventToAdd])
           .select();
-        if (error) console.error('Error adding event:', error);
+        if (error) console.error("Error adding event:", error);
         else {
           const newFormattedEvent = {
             id: data[0].id,
@@ -253,35 +277,50 @@ const CalendarSection = () => {
             start: data[0].start_time,
             end: data[0].end_time,
             allDay: data[0].all_day,
-            backgroundColor: getCategoryColor(data[0].category, data[0].is_done),
+            backgroundColor: getCategoryColor(
+              data[0].category,
+              data[0].is_done
+            ),
             borderColor: getCategoryColor(data[0].category, data[0].is_done),
             extendedProps: {
               description: data[0].description,
               location: data[0].location,
               category: data[0].category,
               isDone: data[0].is_done,
-              clientName: data[0].client_name
-            }
+              clientName: data[0].client_name,
+            },
           };
-          setEvents(currentEvents => [...currentEvents, newFormattedEvent]);
+          setEvents((currentEvents) => [...currentEvents, newFormattedEvent]);
         }
       }
 
       setIsModalOpen(false);
-      setNewEvent({ title: '', description: '', start: '', end: '', location: '', category: '', allDay: false, isDone: false, clientName: '' });
+      setNewEvent({
+        title: "",
+        description: "",
+        start: "",
+        end: "",
+        location: "",
+        category: "",
+        allDay: false,
+        isDone: false,
+        clientName: "",
+      });
     }
   };
 
   const handleEventDelete = async () => {
     if (isEditing && newEvent.id) {
       const { error } = await supabase
-        .from('events')
+        .from("events")
         .delete()
-        .eq('id', newEvent.id);
-      if (error) console.error('Error deleting event:', error);
+        .eq("id", newEvent.id);
+      if (error) console.error("Error deleting event:", error);
       else {
         setIsModalOpen(false);
-        setEvents(currentEvents => currentEvents.filter(event => event.id !== newEvent.id));
+        setEvents((currentEvents) =>
+          currentEvents.filter((event) => event.id !== newEvent.id)
+        );
       }
     }
   };
@@ -289,127 +328,162 @@ const CalendarSection = () => {
   const handleEventDrop = async (dropInfo) => {
     const updatedEvent = {
       id: dropInfo.event.id,
-      start_time: dropInfo.event.allDay ? `${dropInfo.event.startStr}T00:00:00Z` : dropInfo.event.startStr,
-      end_time: dropInfo.event.allDay ? `${dropInfo.event.endStr || dropInfo.event.startStr}T23:59:59Z` : dropInfo.event.endStr || dropInfo.event.startStr,
-      all_day: dropInfo.event.allDay
+      start_time: dropInfo.event.allDay
+        ? `${dropInfo.event.startStr}T00:00:00Z`
+        : dropInfo.event.startStr,
+      end_time: dropInfo.event.allDay
+        ? `${dropInfo.event.endStr || dropInfo.event.startStr}T23:59:59Z`
+        : dropInfo.event.endStr || dropInfo.event.startStr,
+      all_day: dropInfo.event.allDay,
     };
 
     const { error } = await supabase
-      .from('events')
+      .from("events")
       .update(updatedEvent)
-      .eq('id', updatedEvent.id);
+      .eq("id", updatedEvent.id);
 
     if (error) {
-      console.error('Error updating event:', error);
+      console.error("Error updating event:", error);
     } else {
-      setEvents(currentEvents => currentEvents.map(event =>
-        event.id === updatedEvent.id
-          ? { 
-              ...event, 
-              start: updatedEvent.start_time, 
-              end: updatedEvent.end_time,
-              allDay: updatedEvent.all_day,
-              backgroundColor: getCategoryColor(event.extendedProps.category, event.extendedProps.isDone),
-              borderColor: getCategoryColor(event.extendedProps.category, event.extendedProps.isDone),
-              extendedProps: {
-                ...event.extendedProps,
-                start_time: updatedEvent.start_time,
-                end_time: updatedEvent.end_time
+      setEvents((currentEvents) =>
+        currentEvents.map((event) =>
+          event.id === updatedEvent.id
+            ? {
+                ...event,
+                start: updatedEvent.start_time,
+                end: updatedEvent.end_time,
+                allDay: updatedEvent.all_day,
+                backgroundColor: getCategoryColor(
+                  event.extendedProps.category,
+                  event.extendedProps.isDone
+                ),
+                borderColor: getCategoryColor(
+                  event.extendedProps.category,
+                  event.extendedProps.isDone
+                ),
+                extendedProps: {
+                  ...event.extendedProps,
+                  start_time: updatedEvent.start_time,
+                  end_time: updatedEvent.end_time,
+                },
               }
-            }
-          : event
-      ));
+            : event
+        )
+      );
     }
   };
 
   const handleEventResize = async (resizeInfo) => {
     const updatedEvent = {
       id: resizeInfo.event.id,
-      start_time: resizeInfo.event.allDay ? `${resizeInfo.event.startStr}T00:00:00Z` : resizeInfo.event.startStr,
-      end_time: resizeInfo.event.allDay ? `${resizeInfo.event.endStr || resizeInfo.event.startStr}T23:59:59Z` : resizeInfo.event.endStr || resizeInfo.event.startStr,
-      all_day: resizeInfo.event.allDay
+      start_time: resizeInfo.event.allDay
+        ? `${resizeInfo.event.startStr}T00:00:00Z`
+        : resizeInfo.event.startStr,
+      end_time: resizeInfo.event.allDay
+        ? `${resizeInfo.event.endStr || resizeInfo.event.startStr}T23:59:59Z`
+        : resizeInfo.event.endStr || resizeInfo.event.startStr,
+      all_day: resizeInfo.event.allDay,
     };
-  
+
     const { error } = await supabase
-      .from('events')
+      .from("events")
       .update(updatedEvent)
-      .eq('id', updatedEvent.id);
-  
+      .eq("id", updatedEvent.id);
+
     if (error) {
-      console.error('Error updating event:', error);
+      console.error("Error updating event:", error);
     } else {
-      setEvents(currentEvents => currentEvents.map(event =>
-        event.id === updatedEvent.id
-          ? { 
-              ...event, 
-              start: updatedEvent.start_time, 
-              end: updatedEvent.end_time,
-              allDay: updatedEvent.all_day,
-              backgroundColor: getCategoryColor(event.extendedProps.category, event.extendedProps.isDone),
-              borderColor: getCategoryColor(event.extendedProps.category, event.extendedProps.isDone),
-              extendedProps: {
-                ...event.extendedProps,
-                start_time: updatedEvent.start_time,
-                end_time: updatedEvent.end_time
+      setEvents((currentEvents) =>
+        currentEvents.map((event) =>
+          event.id === updatedEvent.id
+            ? {
+                ...event,
+                start: updatedEvent.start_time,
+                end: updatedEvent.end_time,
+                allDay: updatedEvent.all_day,
+                backgroundColor: getCategoryColor(
+                  event.extendedProps.category,
+                  event.extendedProps.isDone
+                ),
+                borderColor: getCategoryColor(
+                  event.extendedProps.category,
+                  event.extendedProps.isDone
+                ),
+                extendedProps: {
+                  ...event.extendedProps,
+                  start_time: updatedEvent.start_time,
+                  end_time: updatedEvent.end_time,
+                },
               }
-            }
-          : event
-      ));
+            : event
+        )
+      );
     }
   };
-  
+
   const handleEventChange = async (changeInfo) => {
     const updatedEvent = {
       id: changeInfo.event.id,
-      start_time: changeInfo.event.allDay ? `${changeInfo.event.startStr}T00:00:00Z` : changeInfo.event.startStr,
-      end_time: changeInfo.event.allDay ? `${changeInfo.event.endStr || changeInfo.event.startStr}T23:59:59Z` : changeInfo.event.endStr || changeInfo.event.startStr,
+      start_time: changeInfo.event.allDay
+        ? `${changeInfo.event.startStr}T00:00:00Z`
+        : changeInfo.event.startStr,
+      end_time: changeInfo.event.allDay
+        ? `${changeInfo.event.endStr || changeInfo.event.startStr}T23:59:59Z`
+        : changeInfo.event.endStr || changeInfo.event.startStr,
       all_day: changeInfo.event.allDay,
       category: changeInfo.event.extendedProps.category,
       is_done: changeInfo.event.extendedProps.isDone,
-      client_name: changeInfo.event.extendedProps.clientName
+      client_name: changeInfo.event.extendedProps.clientName,
     };
-  
+
     const { error } = await supabase
-      .from('events')
+      .from("events")
       .update(updatedEvent)
-      .eq('id', updatedEvent.id);
-  
+      .eq("id", updatedEvent.id);
+
     if (error) {
-      console.error('Error updating event:', error);
+      console.error("Error updating event:", error);
     } else {
-      setEvents(currentEvents => currentEvents.map(event =>
-        event.id === updatedEvent.id
-          ? { 
-              ...event, 
-              start: updatedEvent.start_time, 
-              end: updatedEvent.end_time,
-              allDay: updatedEvent.all_day,
-              backgroundColor: getCategoryColor(updatedEvent.category, updatedEvent.is_done),
-              borderColor: getCategoryColor(updatedEvent.category, updatedEvent.is_done),
-              extendedProps: {
-                ...event.extendedProps,
-                start_time: updatedEvent.start_time,
-                end_time: updatedEvent.end_time,
-                category: updatedEvent.category,
-                isDone: updatedEvent.is_done,
-                clientName: updatedEvent.client_name
+      setEvents((currentEvents) =>
+        currentEvents.map((event) =>
+          event.id === updatedEvent.id
+            ? {
+                ...event,
+                start: updatedEvent.start_time,
+                end: updatedEvent.end_time,
+                allDay: updatedEvent.all_day,
+                backgroundColor: getCategoryColor(
+                  updatedEvent.category,
+                  updatedEvent.is_done
+                ),
+                borderColor: getCategoryColor(
+                  updatedEvent.category,
+                  updatedEvent.is_done
+                ),
+                extendedProps: {
+                  ...event.extendedProps,
+                  start_time: updatedEvent.start_time,
+                  end_time: updatedEvent.end_time,
+                  category: updatedEvent.category,
+                  isDone: updatedEvent.is_done,
+                  clientName: updatedEvent.client_name,
+                },
               }
-            }
-          : event
-      ));
+            : event
+        )
+      );
     }
   };
-  
+
   const handleSearch = useCallback(() => {
     fetchEvents();
   }, [fetchEvents]);
-  
+
   const handlePrint = useReactToPrint({
     content: () => calendarComponentRef.current,
     copyStyles: true,
     pageStyle: `
-      @media print {
-        body { -webkit-print-color-adjust: exact; }
+    body { -webkit-print-color-adjust: exact; }
         .fc-toolbar, .fc-header-toolbar { display: none !important; }
         .fc-view-harness { height: auto !important; }
         .fc { max-width: 100% !important; }
@@ -423,24 +497,53 @@ const CalendarSection = () => {
           font-weight: bold; 
           margin-bottom: 20px; 
         }
+        .fc th, .fc td { 
+          border: 1px solid #000 !important;
+        }
+        
+  
+  @page { 
+          size: landscape;
+          margin: 0.5cm;
+        }
+       
+  
       }
     `,
     onBeforeGetContent: () => {
-      setPrintClientName(filterClientName);
-      if (calendarRef.current) {
-        const calendarApi = calendarRef.current.getApi();
-        calendarApi.changeView('dayGridMonth');
-        calendarApi.render();
-      }
+      return new Promise((resolve) => {
+        setPrintClientName(filterClientName);
+        if (calendarRef.current) {
+          const calendarApi = calendarRef.current.getApi();
+          calendarApi.changeView("dayGridMonth");
+          calendarApi.updateSize(); // Ensure calendar size is updated before print
+          calendarApi.render();
+        }
+        setTimeout(resolve, 250);
+      });
     },
     onAfterPrint: () => {
+      setIsPrinting(false);
       if (calendarRef.current) {
         const calendarApi = calendarRef.current.getApi();
         calendarApi.updateSize();
       }
     },
   });
-  
+
+  const triggerPrint = useCallback(() => {
+    setIsPrinting(true);
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  }, [handlePrint]);
+
+  useEffect(() => {
+    if (isPrinting) {
+      handlePrint();
+    }
+  }, [isPrinting, handlePrint]);
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Event Calendar</h2>
@@ -464,7 +567,10 @@ const CalendarSection = () => {
               ))}
             </SelectContent>
           </Select>
-          <Popover open={openClientCombobox} onOpenChange={setOpenClientCombobox}>
+          <Popover
+            open={openClientCombobox}
+            onOpenChange={setOpenClientCombobox}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -487,14 +593,20 @@ const CalendarSection = () => {
                         key={client.value}
                         value={client.value}
                         onSelect={(currentValue) => {
-                          setFilterClientName(currentValue === filterClientName ? "" : currentValue);
+                          setFilterClientName(
+                            currentValue === filterClientName
+                              ? ""
+                              : currentValue
+                          );
                           setOpenClientCombobox(false);
                         }}
                       >
                         <Check
                           className={cn(
                             "mr-2 h-4 w-4",
-                            filterClientName === client.value ? "opacity-100" : "opacity-0"
+                            filterClientName === client.value
+                              ? "opacity-100"
+                              : "opacity-0"
                           )}
                         />
                         {client.label}
@@ -505,20 +617,25 @@ const CalendarSection = () => {
               </Command>
             </PopoverContent>
           </Popover>
-          <Button onClick={handlePrint}>Print Calendar</Button>
+          <Button onClick={triggerPrint}>Print Calendar</Button>
         </div>
-        <div className="bg-white shadow-none" ref={calendarComponentRef}> 
-          <div className="print-header" style={{ display: 'none' }}>
-            Monthly Chart {printClientName ? `- ${printClientName}` : ''}
+        <div className="bg-white shadow-none" ref={calendarComponentRef}>
+          <div className="print-header" style={{ display: "none" }}>
+            Monthly Chart {printClientName ? `- ${printClientName}` : ""}
           </div>
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            plugins={[
+              dayGridPlugin,
+              timeGridPlugin,
+              listPlugin,
+              interactionPlugin,
+            ]}
             initialView="dayGridMonth"
             headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: 'dayGridMonth,timeGridWeek,timeGridDay,listYear'
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek,timeGridDay,listYear",
             }}
             events={events}
             selectable={true}
@@ -529,6 +646,7 @@ const CalendarSection = () => {
             eventResize={handleEventResize}
             eventChange={handleEventChange}
             eventResizableFromStart={true}
+            aspectRatio={1.35} // Adjust this value to fit all columns
             height="auto"
             timeZone="Asia/Kolkata"
             handleWindowResize={true}
@@ -536,16 +654,21 @@ const CalendarSection = () => {
             dayMaxEvents={2}
             moreLinkClick="popover"
             eventTimeFormat={{
-              hour: 'numeric',
-              minute: '2-digit',
-              meridiem: 'short'
+              hour: "numeric",
+              minute: "2-digit",
+              meridiem: "short",
             }}
+            dayCellClassNames="border-2 border-gray-300" // Add border to each day cell
+            eventClassNames="mb-1 font-semibold" // Improve event styling
+            dayHeaderClassNames="bg-gray-200 text-gray-700 uppercase  tracking-wider "
           />
         </div>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{isEditing ? 'Edit Event' : 'Add New Event'}</DialogTitle>
+              <DialogTitle>
+                {isEditing ? "Edit Event" : "Add New Event"}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -553,7 +676,9 @@ const CalendarSection = () => {
                 <Input
                   id="title"
                   value={newEvent.title}
-                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, title: e.target.value })
+                  }
                 />
                 {errors.title && <p className="text-red-500">{errors.title}</p>}
               </div>
@@ -562,7 +687,9 @@ const CalendarSection = () => {
                 <Textarea
                   id="description"
                   value={newEvent.description}
-                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, description: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -570,14 +697,18 @@ const CalendarSection = () => {
                 <Input
                   id="location"
                   value={newEvent.location}
-                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, location: e.target.value })
+                  }
                 />
               </div>
               <div>
                 <Label htmlFor="category">Category</Label>
                 <Select
                   value={newEvent.category}
-                  onValueChange={(value) => setNewEvent({ ...newEvent, category: value })}
+                  onValueChange={(value) =>
+                    setNewEvent({ ...newEvent, category: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
@@ -590,7 +721,9 @@ const CalendarSection = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.category && <p className="text-red-500">{errors.category}</p>}
+                {errors.category && (
+                  <p className="text-red-500">{errors.category}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="clientName">Client Name</Label>
@@ -617,14 +750,19 @@ const CalendarSection = () => {
                               key={client.value}
                               value={client.value}
                               onSelect={(currentValue) => {
-                                setNewEvent({ ...newEvent, clientName: currentValue });
+                                setNewEvent({
+                                  ...newEvent,
+                                  clientName: currentValue,
+                                });
                                 setOpenClientCombobox(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  newEvent.clientName === client.value ? "opacity-100" : "opacity-0"
+                                  newEvent.clientName === client.value
+                                    ? "opacity-100"
+                                    : "opacity-0"
                                 )}
                               />
                               {client.label}
@@ -640,23 +778,28 @@ const CalendarSection = () => {
                 <Checkbox
                   id="isDone"
                   checked={newEvent.isDone}
-                  onCheckedChange={(checked) => setNewEvent({ ...newEvent, isDone: checked })}
+                  onCheckedChange={(checked) =>
+                    setNewEvent({ ...newEvent, isDone: checked })
+                  }
                 />
                 <Label htmlFor="isDone">Mark as Done</Label>
               </div>
             </div>
             <DialogFooter>
               {isEditing && (
-                <Button variant="destructive" onClick={handleEventDelete}>Delete</Button>
+                <Button variant="destructive" onClick={handleEventDelete}>
+                  Delete
+                </Button>
               )}
-              <Button onClick={handleEventAdd}>{isEditing ? 'Update' : 'Add'} Event</Button>
+              <Button onClick={handleEventAdd}>
+                {isEditing ? "Update" : "Add"} Event
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </Card>
     </div>
   );
-  };
-  
-  export default CalendarSection;
-  
+};
+
+export default CalendarSection;

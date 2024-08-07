@@ -3,7 +3,13 @@ import { Link, Route, Routes, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ReceiptText, Bell, Calendar, ReceiptIndianRupee, Users } from "lucide-react"; // Added Users icon
+import {
+  ReceiptText,
+  Bell,
+  Calendar,
+  ReceiptIndianRupee,
+  Users,
+} from "lucide-react"; // Added Users icon
 import Billing from "./components/Billing";
 
 import CalendarSection from "./components/CalendarSection";
@@ -107,10 +113,10 @@ const HomeComponent = () => {
       <div className="flex-1 p-6 overflow-auto ml-20">
         <Routes>
           <Route path="billing" element={<Billing />} />
- 
           <Route path="calendar" element={<CalendarSection />} />
           <Route path="monthly-expenses" element={<MonthlyExpenses />} />
-          <Route path="clients" element={<Clients />} /> {/* New route for Clients */}
+          <Route path="clients" element={<Clients />} />{" "}
+          {/* New route for Clients */}
         </Routes>
       </div>
     </div>
