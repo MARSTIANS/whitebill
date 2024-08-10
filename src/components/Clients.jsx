@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabase";
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import { toast, Toaster } from "sonner";
+import { Edit, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,273 +24,370 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardDescription ,CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Clients = () => {
   const [clients, setClients] = useState([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [stages, setStages] = useState({
+    New: [],
+    Contacted: [],
+    Qualified: [],
+    Proposal: [],
+    Won: [],
+    Lost: [],
+  });
+  const [expanded, setExpanded] = useState(Object.keys(stages));
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [currentClient, setCurrentClient] = useState(null);
   const [newClient, setNewClient] = useState({
     name: "",
-    clientName: "",
-    companyName: "",
-    phoneNumber: "",
+    company_name: "",
+    phone_number: "",
     location: "",
+    client_name: "",
+    stage: "New",
   });
-  const [errors, setErrors] = useState({
-    name: "",
-  });
-
-  const fetchClients = async () => {
-    const { data, error } = await supabase.from("clients").select("*");
-    if (error) {
-      console.error("Error fetching clients:", error);
-    } else {
-      setClients(data);
-    }
-  };
+  const [editingClient, setEditingClient] = useState(null);
 
   useEffect(() => {
     fetchClients();
   }, []);
 
-  const validateClient = () => {
-    let isValid = true;
-    const newErrors = { name: "" };
-
-    if (!newClient.name) {
-      newErrors.name = "Client name is required.";
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
+  const fetchClients = async () => {
+    const { data } = await supabase.from("clients").select("*");
+    const groupedClients = {
+      New: [],
+      Contacted: [],
+      Qualified: [],
+      Proposal: [],
+      Won: [],
+      Lost: [],
+    };
+    data.forEach((client) => {
+      groupedClients[client.stage].push(client);
+    });
+    setClients(data);
+    setStages(groupedClients);
   };
 
-  const addClient = async () => {
-    if (validateClient()) {
-      const { error } = await supabase.from("clients").insert([
-        {
-          name: newClient.name,
-          client_name: newClient.clientName,
-          company_name: newClient.companyName,
-          phone_number: newClient.phoneNumber,
-          location: newClient.location,
-        },
-      ]);
-      if (error) {
-        console.error("Error adding client:", error);
-      } else {
-        fetchClients();
-        setIsDialogOpen(false);
-        setNewClient({
-          name: "",
-          clientName: "",
-          companyName: "",
-          phoneNumber: "",
-          location: "",
-        });
-      }
+  const onDragEnd = async (result) => {
+    if (!result.destination) return;
+
+    const { source, destination } = result;
+    const sourceStage = source.droppableId;
+    const destStage = destination.droppableId;
+
+    const newStages = { ...stages };
+    const [movedClient] = newStages[sourceStage].splice(source.index, 1);
+    movedClient.stage = destStage;
+    newStages[destStage].splice(destination.index, 0, movedClient);
+
+    setStages(newStages);
+
+    // Update stage in database
+    await updateClientStage(movedClient.id, destStage);
+    toast.success("Client stage updated successfully");
+  };
+
+  const updateClientStage = async (clientId, newStage) => {
+    await supabase
+      .from("clients")
+      .update({ stage: newStage })
+      .eq("id", clientId);
+  };
+
+  const handleAddDialogOpen = () => {
+    setIsAddDialogOpen(true);
+  };
+
+  const handleAddDialogClose = () => {
+    setIsAddDialogOpen(false);
+    setNewClient({
+      name: "",
+      company_name: "",
+      phone_number: "",
+      location: "",
+      client_name: "",
+      stage: "New",
+    });
+  };
+
+  const handleEditDialogOpen = (client) => {
+    setEditingClient(client);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditDialogClose = () => {
+    setIsEditDialogOpen(false);
+    setEditingClient(null);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    if (editingClient) {
+      setEditingClient({ ...editingClient, [name]: value });
+    } else {
+      setNewClient({ ...newClient, [name]: value });
     }
   };
 
-  const deleteClient = async (id) => {
-    const { error } = await supabase.from("clients").delete().eq("id", id);
+  const handleAddClient = async () => {
+    const { error } = await supabase.from("clients").insert([newClient]);
     if (error) {
-      console.error("Error deleting client:", error);
+      console.error("Error adding client:", error);
+      toast.error("Failed to add client");
     } else {
       fetchClients();
+      handleAddDialogClose();
+      toast.success("Client added successfully");
     }
+  };
+
+  const handleEditClient = async () => {
+    const { error } = await supabase
+      .from("clients")
+      .update(editingClient)
+      .eq("id", editingClient.id);
+    if (error) {
+      console.error("Error updating client:", error);
+      toast.error("Failed to update client");
+    } else {
+      fetchClients();
+      handleEditDialogClose();
+      toast.success("Client updated successfully");
+    }
+  };
+
+  const handleDeleteClient = async (clientId) => {
+    const { error } = await supabase
+      .from("clients")
+      .delete()
+      .eq("id", clientId);
+    if (error) {
+      console.error("Error deleting client:", error);
+      toast.error("Failed to delete client");
+    } else {
+      fetchClients();
+      toast.success("Client deleted successfully");
+    }
+  };
+
+  const getTextColorClass = (stage) => {
+    switch (stage) {
+      case "New":
+        return "text-yellow-600";
+      case "Contacted":
+        return "text-blue-600";
+      case "Qualified":
+        return "text-green-600";
+      case "Proposal":
+        return "text-purple-600";
+      case "Won":
+        return "text-teal-600";
+      case "Lost":
+        return "text-red-600";
+      default:
+        return "text-gray-600";
+    }
+  };
+
+  const toggleExpand = (stage) => {
+    if (expanded.includes(stage)) {
+      setExpanded(expanded.filter((s) => s !== stage));
+    } else {
+      setExpanded([...expanded, stage]);
+    }
+  };
+
+  const getCardWidth = (stage) => {
+    return expanded.includes(stage) ? "w-[240px]" : "w-[100px]";
+  };
+
+  const calculateContainerWidth = () => {
+    return `${expanded.length * 300 + (Object.keys(stages).length - expanded.length) * 100}px`;
   };
 
   return (
-    <div>
-      {/* <h2 className="text-2xl font-bold mb-4">Clients</h2> */}
-      <Card className="bg-gray-50">
-        <CardHeader className="flex flex-row justify-between items-center">
-          <div>
-            <CardTitle>Clients</CardTitle>
-            <CardDescription>A list of all clients.</CardDescription>
-          </div>
-          <Button onClick={() => setIsDialogOpen(true)}>Add Client</Button>
-        </CardHeader>
-        <CardContent className="h-[480px] overflow-hidden">
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <div className="overflow-y-auto max-h-[452px]">
-              <table className="w-full divide-y-2 divide-gray-200 bg-white text-sm">
-                <thead className="bg-white sticky top-0 z-10">
-                  <tr>
-                    <th className="whitespace-nowrap px-4 py-2 font-medium text-gray-900 bg-white">
-                      Name
-                    </th>
-                    <th className="whitespace-nowrap px-4 py-2 font-medium text-gray-900 bg-white">
-                      Client Name
-                    </th>
-                    <th className="whitespace-nowrap px-4 py-2 font-medium text-gray-900 bg-white">
-                      Company Name
-                    </th>
-                    <th className="whitespace-nowrap px-4 py-2 font-medium text-gray-900 bg-white">
-                      Phone Number
-                    </th>
-                    <th className="whitespace-nowrap px-4 py-2 font-medium text-gray-900 bg-white">
-                      Location
-                    </th>
-                    <th className="whitespace-nowrap px-4 py-2 font-medium text-gray-900 bg-white">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {clients.map((client) => (
-                    <tr
-                      key={client.id}
-                      className="hover:bg-gray-100 transition-colors duration-200"
-                    >
-                      <td className="whitespace-nowrap px-4 py-2 font-medium text-gray-900">
-                        {client.name}
-                      </td>
-                      <td className="whitespace-nowrap text-center px-4 py-2 text-gray-700">
-                        {client.client_name}
-                      </td>
-                      <td className="whitespace-nowrap text-center px-4 py-2 text-gray-700">
-                        {client.company_name}
-                      </td>
-                      <td className="whitespace-nowrap text-center px-4 py-2 text-gray-700">
-                        {client.phone_number}
-                      </td>
-                      <td className="whitespace-nowrap text-center px-4 py-2 text-gray-700">
-                        {client.location}
-                      </td>
-                      <td className="whitespace-nowrap text-center px-4 py-2 text-gray-700">
-                        <div className="space-x-4">
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setCurrentClient(client);
-                              setIsEditDialogOpen(true);
-                            }}
+    <div className="flex flex-col min-h-screen bg-gray-100">
+      <Toaster />
+      <h1 className="text-2xl font-bold mb-4">Clients</h1>
+      <Card className="flex px-1 pt-4 flex-col min-h-screen bg-gray-100">
+        <div className="flex px-4 items-center space-x-4">
+          <Input placeholder="Search clients" className="mr-4" />
+          <Button onClick={handleAddDialogOpen}>Add New Client</Button>
+        </div>
+
+        <div className="flex flex-grow w-full p-4 overflow-x-auto" style={{ width: calculateContainerWidth() }}>
+          <DragDropContext onDragEnd={onDragEnd}>
+            {Object.keys(stages).map((stage) => (
+              <Droppable key={stage} droppableId={stage}>
+                {(provided) => (
+                  <Card
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className={`flex flex-col transition-all duration-300 ease-in-out ${getCardWidth(
+                      stage
+                    )} bg-white ${getTextColorClass(stage)} border border-gray-300 p-4 rounded-lg shadow-md relative cursor-pointer`}
+                  >
+                    {expanded.includes(stage) ? (
+                      <>
+                        <div className="flex justify-between items-center mb-2">
+                          <h2 className={`text-lg font-semibold truncate ${getTextColorClass(stage)}`}>
+                            {stage}
+                          </h2>
+                          <button
+                            className="text-gray-500 transform rotate-90"
+                            onClick={() => toggleExpand(stage)}
                           >
-                            Edit
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="destructive"
-                                onClick={() => {
-                                  setCurrentClient(client);
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Are you absolutely sure?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently
-                                  delete this client.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel
-                                  onClick={() => setCurrentClient(null)}
-                                >
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => {
-                                    if (currentClient) {
-                                      deleteClient(currentClient.id);
-                                      setCurrentClient(null);
-                                    }
-                                  }}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                            <ChevronRight />
+                          </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </CardContent>
+                        <div className="flex-grow overflow-y-auto pr-2">
+                          {stages[stage].length > 0 ? (
+                            stages[stage].map((client, index) => (
+                              <Draggable
+                                key={client.id}
+                                draggableId={client.id}
+                                index={index}
+                              >
+                                {(provided) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                  >
+                                    <Card className="mb-2">
+                                      <CardHeader>
+                                        <CardTitle>{client.client_name}</CardTitle>
+                                        <CardDescription>{client.company_name}</CardDescription>
+                                      </CardHeader>
+                                      <CardContent>
+                                        <p>{client.name}</p>
+                                        <p>{client.phone_number}</p>
+                                        <p>{client.location}</p>
+                                      </CardContent>
+                                      <CardFooter className="flex justify-end space-x-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleEditDialogOpen(client)}
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon">
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>
+                                                Are you sure you want to delete this client?
+                                              </AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                This action cannot be undone.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                              <AlertDialogAction
+                                                onClick={() =>
+                                                  handleDeleteClient(client.id)
+                                                }
+                                              >
+                                                Delete
+                                              </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      </CardFooter>
+                                    </Card>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                              <p className="mb-2">No clients</p>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="transform -rotate-90 whitespace-nowrap">
+                          <p className={`text-sm font-semibold text-center ${getTextColorClass(stage)}`}>
+                            {stage}
+                          </p>
+                        </div>
+                        <button
+                          className="absolute top-2 right-2 text-gray-500"
+                          onClick={() => toggleExpand(stage)}
+                        >
+                          <ChevronLeft />
+                        </button>
+                      </div>
+                    )}
+                    {provided.placeholder}
+                  </Card>
+                )}
+              </Droppable>
+            ))}
+          </DragDropContext>
+        </div>
       </Card>
 
       {/* Add Client Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
           </DialogHeader>
-          <div>
-            <Label htmlFor="name" className="mt-2">Name</Label>
+          <div className="space-y-4">
             <Input
-              type="text"
-              id="name"
+              name="name"
               value={newClient.name}
-              onChange={(e) =>
-                setNewClient({ ...newClient, name: e.target.value })
-              }
+              onChange={handleInputChange}
+              placeholder="Client Name"
             />
-            {errors.name && <p className="text-red-600">{errors.name}</p>}
-
-            <Label htmlFor="clientName" className="mt-2">Client Name</Label>
             <Input
-              type="text"
-              id="clientName"
-              value={newClient.clientName}
-              onChange={(e) =>
-                setNewClient({ ...newClient, clientName: e.target.value })
-              }
+              name="company_name"
+              value={newClient.company_name}
+              onChange={handleInputChange}
+              placeholder="Company Name"
             />
-
-            <Label htmlFor="companyName" className="mt-2">Company Name</Label>
             <Input
-              type="text"
-              id="companyName"
-              value={newClient.companyName}
-              onChange={(e) =>
-                setNewClient({ ...newClient, companyName: e.target.value })
-              }
+              name="phone_number"
+              value={newClient.phone_number}
+              onChange={handleInputChange}
+              placeholder="Phone Number"
             />
-
-<Label htmlFor="phoneNumber" className="mt-2">Phone Number</Label>
             <Input
-              type="text"
-              id="phoneNumber"
-              value={newClient.phoneNumber}
-              onChange={(e) =>
-                setNewClient({ ...newClient, phoneNumber: e.target.value })
-              }
-            />
-
-            <Label htmlFor="location" className="mt-2">Location</Label>
-            <Input
-              type="text"
-              id="location"
+              name="location"
               value={newClient.location}
-              onChange={(e) =>
-                setNewClient({ ...newClient, location: e.target.value })
-              }
+              onChange={handleInputChange}
+              placeholder="Location"
+            />
+            <Input
+              name="client_name"
+              value={newClient.client_name}
+              onChange={handleInputChange}
+              placeholder="Client's Contact Name"
             />
           </div>
-          <DialogFooter>
-            <Button onClick={addClient}>Add Client</Button>
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>
+          <div className="mt-4 flex justify-end space-x-2">
+            <Button variant="outline" onClick={handleAddDialogClose}>
               Cancel
             </Button>
-          </DialogFooter>
+            <Button onClick={handleAddClient}>Add Client</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -294,87 +397,46 @@ const Clients = () => {
           <DialogHeader>
             <DialogTitle>Edit Client</DialogTitle>
           </DialogHeader>
-          <div>
-            <Label htmlFor="name" className="mt-2">Name</Label>
-            <Input
-              type="text"
-              id="name"
-              value={currentClient?.name || ""}
-              onChange={(e) =>
-                setCurrentClient({ ...currentClient, name: e.target.value })
-              }
-            />
-
-            <Label htmlFor="clientName" className="mt-2">Client Name</Label>
-            <Input
-              type="text"
-              id="clientName"
-              value={currentClient?.client_name || ""}
-              onChange={(e) =>
-                setCurrentClient({ ...currentClient, client_name: e.target.value })
-              }
-            />
-
-            <Label htmlFor="companyName" className="mt-2">Company Name</Label>
-            <Input
-              type="text"
-              id="companyName"
-              value={currentClient?.company_name || ""}
-              onChange={(e) =>
-                setCurrentClient({ ...currentClient, company_name: e.target.value })
-              }
-            />
-
-            <Label htmlFor="phoneNumber" className="mt-2">Phone Number</Label>
-            <Input
-              type="text"
-              id="phoneNumber"
-              value={currentClient?.phone_number || ""}
-              onChange={(e) =>
-                setCurrentClient({ ...currentClient, phone_number: e.target.value })
-              }
-            />
-
-            <Label htmlFor="location" className="mt-2">Location</Label>
-            <Input
-              type="text"
-              id="location"
-              value={currentClient?.location || ""}
-              onChange={(e) =>
-                setCurrentClient({ ...currentClient, location: e.target.value })
-              }
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={async () => {
-                if (currentClient) {
-                  const { error } = await supabase
-                    .from("clients")
-                    .update({
-                      name: currentClient.name,
-                      client_name: currentClient.client_name,
-                      company_name: currentClient.company_name,
-                      phone_number: currentClient.phone_number,
-                      location: currentClient.location,
-                    })
-                    .eq("id", currentClient.id);
-                  if (error) {
-                    console.error("Error updating client:", error);
-                  } else {
-                    fetchClients();
-                    setIsEditDialogOpen(false);
-                    setCurrentClient(null);
-                  }
-                }
-              }}
-            >
-              Save Changes
-            </Button>
-            <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)}>
+          {editingClient && (
+            <div className="space-y-4">
+              <Input
+                name="name"
+                value={editingClient.name}
+                onChange={handleInputChange}
+                placeholder="Client Name"
+              />
+              <Input
+                name="company_name"
+                value={editingClient.company_name}
+                onChange={handleInputChange}
+                placeholder="Company Name"
+              />
+              <Input
+                name="phone_number"
+                value={editingClient.phone_number}
+                onChange={handleInputChange}
+                placeholder="Phone Number"
+              />
+              <Input
+                name="location"
+                value={editingClient.location}
+                onChange={handleInputChange}
+                placeholder="Location"
+              />
+              <Input
+                name="client_name"
+                value={editingClient.client_name}
+                onChange={handleInputChange}
+                placeholder="Client's Contact Name"
+              />
+            </div>
+          )}
+          <div className="mt-4 flex justify-end space-x-2">
+            <Button variant="outline" onClick={handleEditDialogClose}>
               Cancel
             </Button>
-          </DialogFooter>
+            <Button onClick={handleEditClient}>Save Changes</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

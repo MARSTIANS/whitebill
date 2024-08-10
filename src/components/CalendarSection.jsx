@@ -483,12 +483,26 @@ const CalendarSection = () => {
     content: () => calendarComponentRef.current,
     copyStyles: true,
     pageStyle: `
-    body { -webkit-print-color-adjust: exact; }
+      @media print {
+        body { 
+          -webkit-print-color-adjust: exact; 
+          print-color-adjust: exact;
+        }
         .fc-toolbar, .fc-header-toolbar { display: none !important; }
         .fc-view-harness { height: auto !important; }
-        .fc { max-width: 100% !important; }
-        .fc-view { width: 100% !important; }
-        .fc-scroller { overflow: visible !important; height: auto !important; }
+        .fc { 
+          max-width: 1160px !important; 
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .fc-view { 
+          width: 1160px !important; 
+          table-layout: fixed !important;
+        }
+        .fc-scroller { 
+          overflow: visible !important; 
+          height: auto !important; 
+        }
         .fc-day-grid-container { height: auto !important; }
         .print-header { 
           display: block !important; 
@@ -500,14 +514,16 @@ const CalendarSection = () => {
         .fc th, .fc td { 
           border: 1px solid #000 !important;
         }
-        
-  
-  @page { 
+        .fc-day-grid .fc-row {
+          min-height: 5em !important;
+        }
+        .fc-col-header-cell {
+          width: 14.28% !important;
+        }
+        @page { 
           size: landscape;
           margin: 0.5cm;
         }
-       
-  
       }
     `,
     onBeforeGetContent: () => {
@@ -516,7 +532,7 @@ const CalendarSection = () => {
         if (calendarRef.current) {
           const calendarApi = calendarRef.current.getApi();
           calendarApi.changeView("dayGridMonth");
-          calendarApi.updateSize(); // Ensure calendar size is updated before print
+          calendarApi.updateSize();
           calendarApi.render();
         }
         setTimeout(resolve, 250);
@@ -624,44 +640,44 @@ const CalendarSection = () => {
             Monthly Chart {printClientName ? `- ${printClientName}` : ""}
           </div>
           <FullCalendar
-            ref={calendarRef}
-            plugins={[
-              dayGridPlugin,
-              timeGridPlugin,
-              listPlugin,
-              interactionPlugin,
-            ]}
-            initialView="dayGridMonth"
-            headerToolbar={{
-              left: "prev,next today",
-              center: "title",
-              right: "dayGridMonth,timeGridWeek,timeGridDay,listYear",
-            }}
-            events={events}
-            selectable={true}
-            select={handleDateSelect}
-            eventClick={handleEventClick}
-            editable={true}
-            eventDrop={handleEventDrop}
-            eventResize={handleEventResize}
-            eventChange={handleEventChange}
-            eventResizableFromStart={true}
-            aspectRatio={1.35} // Adjust this value to fit all columns
-            height="auto"
-            timeZone="Asia/Kolkata"
-            handleWindowResize={true}
-            stickyHeaderDates={true}
-            dayMaxEvents={2}
-            moreLinkClick="popover"
-            eventTimeFormat={{
-              hour: "numeric",
-              minute: "2-digit",
-              meridiem: "short",
-            }}
-            dayCellClassNames="border-2 border-gray-300" // Add border to each day cell
-            eventClassNames="mb-1 font-semibold" // Improve event styling
-            dayHeaderClassNames="bg-gray-200 text-gray-700 uppercase  tracking-wider "
-          />
+          ref={calendarRef}
+          plugins={[
+            dayGridPlugin,
+            timeGridPlugin,
+            listPlugin,
+            interactionPlugin,
+          ]}
+          initialView="dayGridMonth"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay,listYear",
+          }}
+          events={events}
+          selectable={true}
+          select={handleDateSelect}
+          eventClick={handleEventClick}
+          editable={true}
+          eventDrop={handleEventDrop}
+          eventResize={handleEventResize}
+          eventChange={handleEventChange}
+          eventResizableFromStart={true}
+          aspectRatio={1.5} // Increased from 1.35 to ensure all columns fit
+          contentHeight="auto" // Added to control the calendar's height
+          timeZone="Asia/Kolkata"
+          handleWindowResize={true}
+          stickyHeaderDates={true}
+          dayMaxEvents={2}
+          moreLinkClick="popover"
+          eventTimeFormat={{
+            hour: "numeric",
+            minute: "2-digit",
+            meridiem: "short",
+          }}
+          dayCellClassNames="border-2 border-gray-300"
+          eventClassNames="mb-1 font-semibold"
+          dayHeaderClassNames="bg-gray-200 text-gray-700 uppercase tracking-wider"
+        />
         </div>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent>
