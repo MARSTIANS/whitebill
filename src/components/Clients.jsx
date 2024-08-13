@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { supabase } from "../supabase";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
-import { toast, Toaster } from "sonner";
-import { Edit, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { Edit, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { supabase } from '../supabase';
 import {
   Card,
   CardContent,
@@ -10,9 +9,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,320 +22,292 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/use-toast';
 
-const Clients = () => {
-  const [clients, setClients] = useState([]);
-  const [stages, setStages] = useState({
-    New: [],
-    Contacted: [],
-    Qualified: [],
-    Proposal: [],
-    Won: [],
-    Lost: [],
-  });
-  const [expanded, setExpanded] = useState(Object.keys(stages));
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [newClient, setNewClient] = useState({
-    name: "",
-    company_name: "",
-    phone_number: "",
-    location: "",
-    client_name: "",
-    stage: "New",
-  });
-  const [editingClient, setEditingClient] = useState(null);
+const Client = () => {
+  const [columns, setColumns] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [expandedColumns, setExpandedColumns] = useState([
+    'Lead', 'Contacted', 'Proposal', 'Won', 'Lost'
+  ]);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchClients();
   }, []);
 
   const fetchClients = async () => {
-    const { data } = await supabase.from("clients").select("*");
-    const groupedClients = {
-      New: [],
-      Contacted: [],
-      Qualified: [],
-      Proposal: [],
-      Won: [],
-      Lost: [],
-    };
-    data.forEach((client) => {
-      groupedClients[client.stage].push(client);
-    });
-    setClients(data);
-    setStages(groupedClients);
+    const { data: clientData, error } = await supabase
+      .from('clients')
+      .select('*');
+
+    if (error) {
+      console.error('Error fetching clients:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load clients.',
+        variant: 'destructive',
+      });
+    } else {
+      const categorizedData = [
+        { name: 'Lead', color: 'yellow', bgColor: 'bg-yellow-50', clients: [] },
+        { name: 'Contacted', color: 'blue', bgColor: 'bg-blue-50', clients: [] },
+        { name: 'Proposal', color: 'purple', bgColor: 'bg-purple-50', clients: [] },
+        { name: 'Won', color: 'green', bgColor: 'bg-green-50', clients: [] },
+        { name: 'Lost', color: 'red', bgColor: 'bg-red-50', clients: [] },
+      ];
+
+      clientData.forEach((client) => {
+        const category = categorizedData.find(column => column.name.toLowerCase() === client.status);
+        if (category) {
+          category.clients.push(client);
+        }
+      });
+
+      setColumns(categorizedData);
+    }
+  };
+
+  const handleAddOrUpdateClient = async (client) => {
+    if (isEditMode) {
+      const { error } = await supabase
+        .from('clients')
+        .update(client)
+        .eq('id', client.id);
+
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to update client.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Client updated successfully.',
+          variant: 'positive',
+        });
+      }
+    } else {
+      const { error } = await supabase.from('clients').insert([client]);
+
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to add client.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Client added successfully.',
+          variant: 'positive',
+        });
+      }
+    }
+
+    fetchClients();
+    setSelectedClient(null);
+  };
+
+  const handleDeleteClient = async (id) => {
+    const { error } = await supabase.from('clients').delete().eq('id', id);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete client.',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: 'Client deleted successfully.',
+        variant: 'positive',
+      });
+    }
+
+    fetchClients();
   };
 
   const onDragEnd = async (result) => {
-    if (!result.destination) return;
-
     const { source, destination } = result;
-    const sourceStage = source.droppableId;
-    const destStage = destination.droppableId;
 
-    const newStages = { ...stages };
-    const [movedClient] = newStages[sourceStage].splice(source.index, 1);
-    movedClient.stage = destStage;
-    newStages[destStage].splice(destination.index, 0, movedClient);
+    if (!destination) return;
 
-    setStages(newStages);
+    const sourceColumnIndex = columns.findIndex(column => column.name === source.droppableId);
+    const destinationColumnIndex = columns.findIndex(column => column.name === destination.droppableId);
 
-    // Update stage in database
-    await updateClientStage(movedClient.id, destStage);
-    toast.success("Client stage updated successfully");
-  };
+    const sourceColumn = columns[sourceColumnIndex];
+    const destinationColumn = columns[destinationColumnIndex];
 
-  const updateClientStage = async (clientId, newStage) => {
-    await supabase
-      .from("clients")
-      .update({ stage: newStage })
-      .eq("id", clientId);
-  };
+    const sourceItems = Array.from(sourceColumn.clients);
+    const [removed] = sourceItems.splice(source.index, 1);
 
-  const handleAddDialogOpen = () => {
-    setIsAddDialogOpen(true);
-  };
-
-  const handleAddDialogClose = () => {
-    setIsAddDialogOpen(false);
-    setNewClient({
-      name: "",
-      company_name: "",
-      phone_number: "",
-      location: "",
-      client_name: "",
-      stage: "New",
-    });
-  };
-
-  const handleEditDialogOpen = (client) => {
-    setEditingClient(client);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleEditDialogClose = () => {
-    setIsEditDialogOpen(false);
-    setEditingClient(null);
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    if (editingClient) {
-      setEditingClient({ ...editingClient, [name]: value });
+    if (sourceColumnIndex === destinationColumnIndex) {
+      sourceItems.splice(destination.index, 0, removed);
+      const newColumns = [...columns];
+      newColumns[sourceColumnIndex].clients = sourceItems;
+      setColumns(newColumns);
     } else {
-      setNewClient({ ...newClient, [name]: value });
+      const destinationItems = Array.from(destinationColumn.clients);
+      destinationItems.splice(destination.index, 0, removed);
+      const newColumns = [...columns];
+      newColumns[sourceColumnIndex].clients = sourceItems;
+      newColumns[destinationColumnIndex].clients = destinationItems;
+      setColumns(newColumns);
+
+      removed.status = destination.droppableId.toLowerCase();
+      const { error } = await supabase
+        .from('clients')
+        .update({ status: removed.status })
+        .eq('id', removed.id);
+
+      if (error) {
+        console.error('Error updating client status:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to update client status.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
-  const handleAddClient = async () => {
-    const { error } = await supabase.from("clients").insert([newClient]);
-    if (error) {
-      console.error("Error adding client:", error);
-      toast.error("Failed to add client");
-    } else {
-      fetchClients();
-      handleAddDialogClose();
-      toast.success("Client added successfully");
-    }
+  const toggleColumnExpansion = (columnName) => {
+    setExpandedColumns((prev) =>
+      prev.includes(columnName)
+        ? prev.filter((name) => name !== columnName)
+        : [...prev, columnName]
+    );
   };
 
-  const handleEditClient = async () => {
-    const { error } = await supabase
-      .from("clients")
-      .update(editingClient)
-      .eq("id", editingClient.id);
-    if (error) {
-      console.error("Error updating client:", error);
-      toast.error("Failed to update client");
-    } else {
-      fetchClients();
-      handleEditDialogClose();
-      toast.success("Client updated successfully");
-    }
-  };
-
-  const handleDeleteClient = async (clientId) => {
-    const { error } = await supabase
-      .from("clients")
-      .delete()
-      .eq("id", clientId);
-    if (error) {
-      console.error("Error deleting client:", error);
-      toast.error("Failed to delete client");
-    } else {
-      fetchClients();
-      toast.success("Client deleted successfully");
-    }
-  };
-
-  const getTextColorClass = (stage) => {
-    switch (stage) {
-      case "New":
-        return "text-yellow-600";
-      case "Contacted":
-        return "text-blue-600";
-      case "Qualified":
-        return "text-green-600";
-      case "Proposal":
-        return "text-purple-600";
-      case "Won":
-        return "text-teal-600";
-      case "Lost":
-        return "text-red-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
-  const toggleExpand = (stage) => {
-    if (expanded.includes(stage)) {
-      setExpanded(expanded.filter((s) => s !== stage));
-    } else {
-      setExpanded([...expanded, stage]);
-    }
-  };
-
-  const getCardWidth = (stage) => {
-    return expanded.includes(stage) ? "w-[240px]" : "w-[100px]";
-  };
-
-  const calculateContainerWidth = () => {
-    return `${expanded.length * 300 + (Object.keys(stages).length - expanded.length) * 100}px`;
-  };
+  const filteredColumns = columns.map(column => ({
+    ...column,
+    clients: column.clients.filter(client =>
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.location.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
+  }));
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
-      <Toaster />
+    <div className="flex flex-col min-h-screen">
       <h1 className="text-2xl font-bold mb-4">Clients</h1>
-      <Card className="flex px-1 pt-4 flex-col min-h-screen bg-gray-100">
-        <div className="flex px-4 items-center space-x-4">
-          <Input placeholder="Search clients" className="mr-4" />
-          <Button onClick={handleAddDialogOpen}>Add New Client</Button>
+      <Card className="flex px-1 pt-4 flex-col w-[1230px] min-h-screen bg-gray-100">
+        <div className="flex px-4 w-[1230px] space-x-4">
+          <Input
+            placeholder="Search clients"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="mr-4"
+          />
+          <Button onClick={() => { setIsEditMode(false); setSelectedClient({}); }}>
+            Add New Client
+          </Button>
         </div>
 
-        <div className="flex flex-grow w-full p-4 overflow-x-auto" style={{ width: calculateContainerWidth() }}>
+        <div className="flex flex-grow w-full p-4 space-x-4 overflow-x-auto">
           <DragDropContext onDragEnd={onDragEnd}>
-            {Object.keys(stages).map((stage) => (
-              <Droppable key={stage} droppableId={stage}>
+            {filteredColumns.map((column) => (
+              <Droppable key={column.name} droppableId={column.name}>
                 {(provided) => (
-                  <Card
+                  <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className={`flex flex-col transition-all duration-300 ease-in-out ${getCardWidth(
-                      stage
-                    )} bg-white ${getTextColorClass(stage)} border border-gray-300 p-4 rounded-lg shadow-md relative cursor-pointer`}
+                    className={`flex flex-col ${
+                      expandedColumns.includes(column.name) ? 'w-[240px]' : 'w-[60px]'
+                    } transition-all duration-300 ease-in-out ${column.bgColor} border border-gray-300 p-4 rounded-lg shadow-md relative cursor-pointer`}
                   >
-                    {expanded.includes(stage) ? (
-                      <>
-                        <div className="flex justify-between items-center mb-2">
-                          <h2 className={`text-lg font-semibold truncate ${getTextColorClass(stage)}`}>
-                            {stage}
-                          </h2>
-                          <button
-                            className="text-gray-500 transform rotate-90"
-                            onClick={() => toggleExpand(stage)}
-                          >
-                            <ChevronRight />
-                          </button>
-                        </div>
-                        <div className="flex-grow overflow-y-auto pr-2">
-                          {stages[stage].length > 0 ? (
-                            stages[stage].map((client, index) => (
-                              <Draggable
-                                key={client.id}
-                                draggableId={client.id}
-                                index={index}
-                              >
-                                {(provided) => (
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
-                                  >
-                                    <Card className="mb-2">
-                                      <CardHeader>
-                                        <CardTitle>{client.client_name}</CardTitle>
-                                        <CardDescription>{client.company_name}</CardDescription>
-                                      </CardHeader>
-                                      <CardContent>
-                                        <p>{client.name}</p>
-                                        <p>{client.phone_number}</p>
-                                        <p>{client.location}</p>
-                                      </CardContent>
-                                      <CardFooter className="flex justify-end space-x-2">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => handleEditDialogOpen(client)}
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon">
-                                              <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle>
-                                                Are you sure you want to delete this client?
-                                              </AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                This action cannot be undone.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                              <AlertDialogAction
-                                                onClick={() =>
-                                                  handleDeleteClient(client.id)
-                                                }
-                                              >
-                                                Delete
-                                              </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
-                                      </CardFooter>
-                                    </Card>
-                                  </div>
-                                )}
-                              </Draggable>
-                            ))
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
-                              <p className="mb-2">No clients</p>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <div className="transform -rotate-90 whitespace-nowrap">
-                          <p className={`text-sm font-semibold text-center ${getTextColorClass(stage)}`}>
-                            {stage}
-                          </p>
-                        </div>
-                        <button
-                          className="absolute top-2 right-2 text-gray-500"
-                          onClick={() => toggleExpand(stage)}
-                        >
+                    <div className="flex justify-between items-center mb-2">
+                      <h2
+                        className={`text-lg font-semibold truncate text-${column.color}-600`}
+                        onClick={() => toggleColumnExpansion(column.name)}
+                      >
+                        {expandedColumns.includes(column.name) ? column.name : ''}
+                      </h2>
+                      <button
+                        className="text-gray-500"
+                        onClick={() => toggleColumnExpansion(column.name)}
+                      >
+                        {expandedColumns.includes(column.name) ? (
                           <ChevronLeft />
-                        </button>
+                        ) : (
+                          <ChevronRight />
+                        )}
+                      </button>
+                    </div>
+                    {expandedColumns.includes(column.name) && (
+                      <div className="flex-grow overflow-y-auto pr-2">
+                        {column.clients.map((client, index) => (
+                          <Draggable key={client.id} draggableId={client.id.toString()} index={index}>
+                            {(provided) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className="mb-2"
+                              >
+                                <Card className="mb-2">
+                                  <CardHeader>
+                                    <p className="text-lg font-semibold">{client.name}</p>
+                                    <CardDescription>{client.company}</CardDescription>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <p>{client.phone}</p>
+                                    <p>{client.location}</p>
+                                  </CardContent>
+                                  <CardFooter className="flex justify-end space-x-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => { setIsEditMode(true); setSelectedClient(client); }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>
+                                            Are you sure you want to delete this client?
+                                          </AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            This action cannot be undone.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction  onClick={() => handleDeleteClient(client.id)}>
+                                            Delete
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </CardFooter>
+                                </Card>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
                       </div>
                     )}
-                    {provided.placeholder}
-                  </Card>
+                  </div>
                 )}
               </Droppable>
             ))}
@@ -344,103 +315,48 @@ const Clients = () => {
         </div>
       </Card>
 
-      {/* Add Client Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Client</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              name="name"
-              value={newClient.name}
-              onChange={handleInputChange}
-              placeholder="Client Name"
-            />
-            <Input
-              name="company_name"
-              value={newClient.company_name}
-              onChange={handleInputChange}
-              placeholder="Company Name"
-            />
-            <Input
-              name="phone_number"
-              value={newClient.phone_number}
-              onChange={handleInputChange}
-              placeholder="Phone Number"
-            />
-            <Input
-              name="location"
-              value={newClient.location}
-              onChange={handleInputChange}
-              placeholder="Location"
-            />
-            <Input
-              name="client_name"
-              value={newClient.client_name}
-              onChange={handleInputChange}
-              placeholder="Client's Contact Name"
-            />
-          </div>
-          <div className="mt-4 flex justify-end space-x-2">
-            <Button variant="outline" onClick={handleAddDialogClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddClient}>Add Client</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Client Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Client</DialogTitle>
-          </DialogHeader>
-          {editingClient && (
+      {/* Add/Edit Client Dialog */}
+      {selectedClient && (
+        <Dialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isEditMode ? 'Edit Client' : 'Add New Client'}</DialogTitle>
+            </DialogHeader>
             <div className="space-y-4">
               <Input
-                name="name"
-                value={editingClient.name}
-                onChange={handleInputChange}
                 placeholder="Client Name"
+                value={selectedClient.name || ''}
+                onChange={(e) => setSelectedClient({ ...selectedClient, name: e.target.value })}
               />
               <Input
-                name="company_name"
-                value={editingClient.company_name}
-                onChange={handleInputChange}
                 placeholder="Company Name"
+                value={selectedClient.company || ''}
+                onChange={(e) => setSelectedClient({ ...selectedClient, company: e.target.value })}
               />
               <Input
-                name="phone_number"
-                value={editingClient.phone_number}
-                onChange={handleInputChange}
                 placeholder="Phone Number"
+                value={selectedClient.phone || ''}
+                onChange={(e) => setSelectedClient({ ...selectedClient, phone: e.target.value })}
               />
               <Input
-                name="location"
-                value={editingClient.location}
-                onChange={handleInputChange}
                 placeholder="Location"
-              />
-              <Input
-                name="client_name"
-                value={editingClient.client_name}
-                onChange={handleInputChange}
-                placeholder="Client's Contact Name"
+                value={selectedClient.location || ''}
+                onChange={(e) => setSelectedClient({ ...selectedClient, location: e.target.value })}
               />
             </div>
-          )}
-          <div className="mt-4 flex justify-end space-x-2">
-            <Button variant="outline" onClick={handleEditDialogClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditClient}>Save Changes</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            <div className="mt-4 flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setSelectedClient(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => handleAddOrUpdateClient(selectedClient)}>
+                {isEditMode ? 'Save Changes' : 'Add Client'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
 
-export default Clients;
+export default Client;
