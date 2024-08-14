@@ -138,7 +138,22 @@ const Client = () => {
 
     fetchClients();
   };
-
+  const getTextColorClass = (color) => {
+    switch (color) {
+      case 'blue':
+        return 'text-blue-600';
+      case 'red':
+        return 'text-red-600';
+      case 'green':
+        return 'text-green-600';
+      case 'yellow':
+        return 'text-yellow-600';
+      case 'purple':
+        return 'text-purple-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
   const onDragEnd = async (result) => {
     const { source, destination } = result;
 
@@ -197,7 +212,8 @@ const Client = () => {
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.location.toLowerCase().includes(searchTerm.toLowerCase())
+      client.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.client_name.toLowerCase().includes(searchTerm.toLowerCase())
     ),
   }));
 
@@ -227,7 +243,7 @@ const Client = () => {
                     ref={provided.innerRef}
                     className={`flex flex-col ${
                       expandedColumns.includes(column.name) ? 'w-[240px]' : 'w-[60px]'
-                    } transition-all duration-300 ease-in-out ${column.bgColor} border border-gray-300 p-4 rounded-lg shadow-md relative cursor-pointer`}
+                    } transition-all duration-200 ease-in-out ${column.bgColor} border border-gray-300 p-4 rounded-lg shadow-md relative cursor-pointer`}
                   >
                     <div className="flex justify-between items-center mb-2">
                       <h2
@@ -247,7 +263,7 @@ const Client = () => {
                         )}
                       </button>
                     </div>
-                    {expandedColumns.includes(column.name) && (
+                    {expandedColumns.includes(column.name) ? (
                       <div className="flex-grow overflow-y-auto pr-2">
                         {column.clients.map((client, index) => (
                           <Draggable key={client.id} draggableId={client.id.toString()} index={index}>
@@ -266,6 +282,7 @@ const Client = () => {
                                   <CardContent>
                                     <p>{client.phone}</p>
                                     <p>{client.location}</p>
+                                    <p>{client.client_name}</p>
                                   </CardContent>
                                   <CardFooter className="flex justify-end space-x-2">
                                     <Button
@@ -306,6 +323,14 @@ const Client = () => {
                         ))}
                         {provided.placeholder}
                       </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="transform -rotate-90 whitespace-nowrap">
+                          <p className={`text-sm font-semibold text-center ${getTextColorClass(column.color)}`}>
+                            {column.name}
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -325,6 +350,11 @@ const Client = () => {
             <div className="space-y-4">
               <Input
                 placeholder="Client Name"
+                value={selectedClient.client_name || ''}
+                onChange={(e) => setSelectedClient({ ...selectedClient, client_name: e.target.value })}
+              />
+              <Input
+                placeholder="Name"
                 value={selectedClient.name || ''}
                 onChange={(e) => setSelectedClient({ ...selectedClient, name: e.target.value })}
               />

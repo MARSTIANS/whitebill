@@ -1,14 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import PrintUI from "./PrintUI";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { supabase } from "../supabase";
+import { v4 as uuidv4 } from "uuid";  // Import the UUID generator
 
 const Billing = () => {
   const [items, setItems] = useState([{ description: "", total: "" }]);
   const [billHistory, setBillHistory] = useState([]);
+  const [selectedBill, setSelectedBill] = useState(null);
+
+  const generateInvoiceNumber = () => {
+    return `INV-${uuidv4().split('-')[0]}`;
+  };
 
   const addItem = () => {
     setItems([...items, { description: "", total: "" }]);
@@ -24,16 +33,43 @@ const Billing = () => {
     return items.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
   };
 
-  const handleBillGenerated = () => {
+  const handleBillGenerated = async () => {
     const newBill = {
-      id: Date.now(),
+      id: uuidv4(),  // Generate a valid UUID
+      invoice_number: generateInvoiceNumber(),
       date: new Date().toLocaleDateString(),
       total: calculateTotal().toFixed(2),
       items: [...items],
     };
-    setBillHistory([newBill, ...billHistory]);
-    setItems([{ description: "", total: "" }]);
+
+    const { data, error } = await supabase
+      .from('bills')
+      .insert([newBill]);
+
+    if (error) {
+      console.error('Error saving bill:', error);
+    } else {
+      setBillHistory([data[0], ...billHistory]);
+      setItems([{ description: "", total: "" }]);
+    }
   };
+
+  const fetchBillHistory = async () => {
+    const { data, error } = await supabase
+      .from('bills')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching bills:', error);
+    } else {
+      setBillHistory(data);
+    }
+  };
+
+  useEffect(() => {
+    fetchBillHistory();
+  }, []);
 
   return (
     <div className="">
@@ -75,7 +111,7 @@ const Billing = () => {
               </Button>
               <div className="mt-4">
                 <p className="text-right font-bold">
-                  Total: ${calculateTotal().toFixed(2)}
+                  Total: ₹{calculateTotal().toFixed(2)}
                 </p>
               </div>
               <PrintUI
@@ -87,28 +123,52 @@ const Billing = () => {
           </Card>
         </div>
         <div className="w-1/2">
-          <Card className="w-full bg-gray-50 p-4">
+          <Card className="w-full bg-gray-50 p-2">
             <CardHeader>
               <CardTitle>Bill History</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px] w-full rounded-md border p-4">
+            <ScrollArea className="h-72 w-full rounded-md border">
+              <div className="p-4">
                 {billHistory.map((bill) => (
-                  <div key={bill.id} className="mb-4 p-4 border rounded">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-bold">Date: {bill.date}</span>
-                      <span className="font-bold">Total: ${bill.total}</span>
-                    </div>
-                    {bill.items.map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span>{item.description}</span>
-                        <span>${item.total}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <React.Fragment key={bill.id}>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <div className="mb-2 cursor-pointer">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm"> {bill.invoice_number}</span>
+                            <span className="font-medium text-sm"> {bill.date}</span>
+                          </div>
+                        </div>
+                      </DialogTrigger>
+                      <Separator className="my-2" />
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Bill Details</DialogTitle>
+                        </DialogHeader>
+                        <Separator />
+                        <div className="mt-4">
+                          {bill.items.map((item, index) => (
+                            <div key={index} className="flex justify-between text-sm mb-2">
+                              <span>{item.description}</span>
+                              <span>₹{item.total}</span>
+                            </div>
+                          ))}
+                          <div className="text-right font-bold mt-4">
+                            Total: ₹{bill.total}
+                          </div>
+                        </div>
+                        <Separator className="my-4" />
+                        <PrintUI
+                          items={bill.items}
+                          calculateTotal={() => parseFloat(bill.total)}
+                          invoiceNumber={bill.invoice_number}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </React.Fragment>
                 ))}
-              </ScrollArea>
-            </CardContent>
+              </div>
+            </ScrollArea>
           </Card>
         </div>
       </div>

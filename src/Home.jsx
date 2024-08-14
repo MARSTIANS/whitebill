@@ -11,7 +11,6 @@ import {
   Users,
 } from "lucide-react"; // Added Users icon
 import Billing from "./components/Billing";
-
 import CalendarSection from "./components/CalendarSection";
 import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
 import Clients from "./components/Clients"; // Import Clients component
@@ -28,6 +27,7 @@ const HomeComponent = () => {
     setIsCollapsed(true);
   };
 
+  // Updated transition duration to make it faster
   const sidebarVariants = {
     expanded: { width: 180 },
     collapsed: { width: 80 },
@@ -38,13 +38,15 @@ const HomeComponent = () => {
     visible: { opacity: 1, width: "auto" },
   };
 
+  const transitionSpeed = 0.07; 
+
   const navItems = [
     {
       path: "billing",
       icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />,
       label: "Billing",
     },
-    // { path: "bill-reminders", icon: <Bell className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Notifications" },
+    
     {
       path: "calendar",
       icon: <Calendar className="w-6 h-6 -ml-1 flex-shrink-0" />,
@@ -69,7 +71,7 @@ const HomeComponent = () => {
         animate={isCollapsed ? "collapsed" : "expanded"}
         variants={sidebarVariants}
         initial="collapsed"
-        transition={{ duration: 0.1 }}
+        transition={{ duration: transitionSpeed }} // Faster sidebar transition
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -98,7 +100,7 @@ const HomeComponent = () => {
                         animate="visible"
                         exit="hidden"
                         variants={textVariants}
-                        transition={{ duration: 0.1 }}
+                        transition={{ duration: transitionSpeed }} // Faster text transition
                       >
                         {item.label}
                       </motion.span>
