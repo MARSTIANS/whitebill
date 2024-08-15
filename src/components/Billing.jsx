@@ -7,20 +7,44 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import PrintUI from "./PrintUI";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";  
 import { supabase } from "../supabase";
-import { v4 as uuidv4 } from "uuid";  // Import the UUID generator
+import { v4 as uuidv4 } from "uuid";  
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const Billing = () => {
-  const [items, setItems] = useState([{ description: "", total: "" }]);
+  const [items, setItems] = useState([{ description: "", quantity: "", numberOfDays: "", total: "" }]);
   const [billHistory, setBillHistory] = useState([]);
   const [selectedBill, setSelectedBill] = useState(null);
+  const [clientDetails, setClientDetails] = useState("");  
+  const [manualTotal, setManualTotal] = useState(0);  
+  const [dateRange, setDateRange] = useState({ from: null, to: null });
 
-  const generateInvoiceNumber = () => {
-    return `INV-${uuidv4().split('-')[0]}`;
+  const generateUniqueInvoiceNumber = async () => {
+    let invoiceNumber;
+    let exists = true;
+
+    while (exists) {
+      invoiceNumber = `INV-${uuidv4().split('-')[0]}`;
+      const { data } = await supabase
+        .from('bills')
+        .select('invoice_number')
+        .eq('invoice_number', invoiceNumber);
+
+      if (data.length === 0) {
+        exists = false;
+      }
+    }
+
+    return invoiceNumber;
   };
 
   const addItem = () => {
-    setItems([...items, { description: "", total: "" }]);
+    setItems([...items, { description: "", quantity: "", numberOfDays: "", total: "" }]);
   };
 
   const updateItem = (index, field, value) => {
@@ -29,17 +53,17 @@ const Billing = () => {
     setItems(newItems);
   };
 
-  const calculateTotal = () => {
-    return items.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
-  };
-
   const handleBillGenerated = async () => {
+    const invoiceNumber = await generateUniqueInvoiceNumber();  // Generate a unique invoice number
     const newBill = {
-      id: uuidv4(),  // Generate a valid UUID
-      invoice_number: generateInvoiceNumber(),
-      date: new Date().toLocaleDateString(),
-      total: calculateTotal().toFixed(2),
+      id: uuidv4(),
+      invoice_number: invoiceNumber,
+      date: dateRange.from && dateRange.to 
+            ? `${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}` 
+            : new Date().toLocaleDateString(),
+      total: parseFloat(manualTotal) || 0,
       items: [...items],
+      client_details: clientDetails,
     };
 
     const { data, error } = await supabase
@@ -50,7 +74,9 @@ const Billing = () => {
       console.error('Error saving bill:', error);
     } else {
       setBillHistory([data[0], ...billHistory]);
-      setItems([{ description: "", total: "" }]);
+      setItems([{ description: "", quantity: "", numberOfDays: "", total: "" }]);
+      setClientDetails("");  
+      setManualTotal(0);  
     }
   };
 
@@ -81,6 +107,56 @@ const Billing = () => {
               <CardTitle>Enter Bill Details</CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 ">
+                <Label>Select Date Range</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="dateRange"
+                      variant={"outline"}
+                      className={cn(
+                        "w-full lg:w-[300px] justify-start text-left font-normal",
+                        !dateRange && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                            {format(dateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>Pick a date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="mb-4">
+                <Label htmlFor="client-details">Client Details</Label>
+                <Textarea
+                  id="client-details"
+                  placeholder="Enter client details here"
+                  value={clientDetails}
+                  onChange={(e) => setClientDetails(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
               {items.map((item, index) => (
                 <div key={index} className="flex space-x-4 mb-4">
                   <div className="flex-1">
@@ -94,13 +170,24 @@ const Billing = () => {
                     />
                   </div>
                   <div className="w-1/4">
-                    <Label htmlFor={`total-${index}`}>Total</Label>
+                    <Label htmlFor={`quantity-${index}`}>Quantity</Label>
                     <Input
-                      id={`total-${index}`}
-                      type="number"
-                      value={item.total}
+                    type="number"
+                      id={`quantity-${index}`}
+                      value={item.quantity}
                       onChange={(e) =>
-                        updateItem(index, "total", e.target.value)
+                        updateItem(index, "quantity", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="w-1/4">
+                    <Label htmlFor={`numberOfDays-${index}`}>Number of Days</Label>
+                    <Input
+                    type="number"
+                      id={`numberOfDays-${index}`}
+                      value={item.numberOfDays}
+                      onChange={(e) =>
+                        updateItem(index, "numberOfDays", e.target.value)
                       }
                     />
                   </div>
@@ -109,15 +196,24 @@ const Billing = () => {
               <Button onClick={addItem} variant="outline" className="mt-2">
                 Add Item
               </Button>
+
               <div className="mt-4">
-                <p className="text-right font-bold">
-                  Total: ₹{calculateTotal().toFixed(2)}
-                </p>
+                <Label htmlFor="manual-total">Total</Label>
+                <Input
+                  id="manual-total"
+                  type="number"
+                  value={manualTotal}
+                  onChange={(e) => setManualTotal(e.target.value)}
+                  className="text-right font-bold"
+                />
               </div>
+
               <PrintUI
                 items={items}
-                calculateTotal={calculateTotal}
+                total={manualTotal}
                 onBillGenerated={handleBillGenerated}
+                dateRange={dateRange}
+                clientDetails={clientDetails}
               />
             </CardContent>
           </Card>
@@ -135,8 +231,8 @@ const Billing = () => {
                       <DialogTrigger asChild>
                         <div className="mb-2 cursor-pointer">
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-sm"> {bill.invoice_number}</span>
-                            <span className="font-medium text-sm"> {bill.date}</span>
+                            <span className="font-medium text-sm">{bill.invoice_number}</span>
+                            <span className="font-medium text-sm">{bill.date}</span>
                           </div>
                         </div>
                       </DialogTrigger>
@@ -150,7 +246,8 @@ const Billing = () => {
                           {bill.items.map((item, index) => (
                             <div key={index} className="flex justify-between text-sm mb-2">
                               <span>{item.description}</span>
-                              <span>₹{item.total}</span>
+                              <span>{item.quantity}</span>
+                              <span>{item.numberOfDays}</span>
                             </div>
                           ))}
                           <div className="text-right font-bold mt-4">
@@ -160,8 +257,10 @@ const Billing = () => {
                         <Separator className="my-4" />
                         <PrintUI
                           items={bill.items}
-                          calculateTotal={() => parseFloat(bill.total)}
+                          total={bill.total}
                           invoiceNumber={bill.invoice_number}
+                          dateRange={dateRange}
+                          clientDetails={bill.client_details}
                         />
                       </DialogContent>
                     </Dialog>
