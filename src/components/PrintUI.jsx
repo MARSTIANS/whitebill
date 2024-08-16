@@ -18,7 +18,7 @@ const PrintUI = ({ items, total, onBillGenerated, invoiceNumber, dateRange, clie
     <div>
       <ReactToPrint
         trigger={() => (
-          <Button className="mt-4 w-full">
+          <Button className="mt-4 w-full text-white rounded-md py-2 transition-colors">
             Print Invoice 
           </Button>
         )}
@@ -47,8 +47,11 @@ const InvoicePrintComponent = React.forwardRef(({ items, total, invoiceNumber, d
     fontFamily: "Inter, sans-serif",
     maxWidth: "800px",
     margin: "0 auto",
-    color: "black",
-    
+    color: "#333",
+    backgroundColor: "#f9f9f9",
+    borderRadius: "8px",
+    minHeight: "100vh", // Ensure the content takes at least the full height of the page
+    boxSizing: "border-box",
   }}>
     <style>
       {
@@ -63,88 +66,125 @@ const InvoicePrintComponent = React.forwardRef(({ items, total, invoiceNumber, d
         @font-face {
           font-family: 'Inter Medium';
           src: url(${InterMedium}) format('truetype');
+        }
+        
+        /* Ensure the entire document has the background color and no extra margins */
+        @page {
+          size: auto;
+          margin: 0;
+        }
+
+        body {
+          margin: 0;
+          padding: 0;
+          background-color: #f9f9f9;
+          -webkit-print-color-adjust: exact; /* Ensures that background colors are printed */
+        }
+
+        html, body {
+          height: 100%;
+        }
+
+        /* Avoid extra space below content */
+        .invoice-container {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
         }`
       }
     </style>
 
-    {/* Logo and Invoice Title */}
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-      <div>
-        <img src={Logo} alt="Logo" style={{ height: "60px" }} /> {/* Using the imported logo */}
-      </div>
-      <div style={{ textAlign: "right" }}>
-        <h1 style={{ fontFamily: "RoxboroughCF", fontSize: "32pt", margin: "0" }}>INVOICE</h1>
-        <p style={{ fontFamily: "Inter Medium", fontSize: "12pt", margin: "5px 0 0" }}>Invoice No. {invoiceNumber}</p>
-        <p style={{ fontFamily: "Inter Medium", fontSize: "12pt", margin: "5px 0 0" }}>
-          {dateRange.from && dateRange.to ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} - ${format(new Date(dateRange.to), "dd/MM/yyyy")}` : "Date Not Specified"}
-        </p>
-      </div>
-    </div>
-
-    {/* Billed To Section */}
-    <div style={{ marginBottom: "20px", paddingBottom: "10px" }}>
-      <h2 style={{ fontFamily: "Inter Medium", fontSize: "14pt", fontWeight: "bold", marginBottom: "10px" }}>BILLED TO:</h2>
-      <p style={{ fontFamily: "Inter", fontSize: "12pt",color: "#555555" , margin: "5px 0", whiteSpace: "pre-wrap" }}>
-        {clientDetails || "Client details not provided"}
-      </p>
-    </div>
-
-    {/* Itemized Table */}
-    <div style={{ marginBottom: "20px", borderTop: "1px solid #736f72" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "10px", borderBottom: "1px solid #736f72", paddingBottom: "10px", marginBottom: "10px" }}>
-        <span style={{ fontFamily: "Inter Medium", fontWeight: "bold", fontSize: "12pt", textAlign: "left", flex: 1 }}>Description</span>
-        <span style={{ fontFamily: "Inter Medium", fontWeight: "bold", fontSize: "12pt", textAlign: "center", flex: 0.5 }}>Quantity</span>
-        <span style={{ fontFamily: "Inter Medium", fontWeight: "bold", fontSize: "12pt", textAlign: "center", flex: 0.5 }}>Number of Days</span>
-      </div>
-      {items.map((item, index) => (
-        <div key={index} style={{ display: "flex", justifyContent: "space-between", margin: "10px 0", borderBottom: "1px solid #736f72", paddingBottom: "10px" }}>
-          <span style={{ fontFamily: "Inter", fontSize: "12pt", flex: 1 }}>{item.description || "No description provided"}</span>
-          <span style={{ fontFamily: "Inter", fontSize: "12pt", textAlign: "center", flex: 0.5 }}>{item.quantity || "0"}</span>
-          <span style={{ fontFamily: "Inter", fontSize: "12pt", textAlign: "center", flex: 0.5 }}>{item.numberOfDays || "0"}</span>
+    <div className="invoice-container" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header Section */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
+        <div>
+          <img src={Logo} alt="Logo" style={{ height: "60px", filter: "grayscale(100%)" }} />
         </div>
-      ))}
-    </div>
-
-    {/* Total Section */}
-    <div style={{ marginTop: "10px", textAlign: "right", marginBottom: "20px", position: "relative" }}>
-      <div style={{ paddingTop: "10px" }}>
-        <span style={{
-          fontFamily: "Inter Medium",
-          fontSize: "14pt",
-          fontWeight: "bold",
-          color: "black",
-          display: "inline-block",
-          width: "150px",
-          textAlign: "right"
-        }}>Total</span>
-        <span style={{
-          fontFamily: "Inter",
-          fontSize: "14pt",
-          fontWeight: "bold",
-          display: "inline-block",
-          marginLeft: "20px",
-          textAlign: "right"
-        }}>₹{parseFloat(total).toFixed(2)}</span>
+        <div style={{ textAlign: "right" }}>
+          <h1 style={{ fontFamily: "RoxboroughCF", fontSize: "28pt", margin: "0", color: "#333" }}>INVOICE</h1>
+        </div>
       </div>
-    </div>
 
-    {/* Thank You Message */}
-    <div style={{ textAlign: "center", marginBottom: "40px" }}>
-      <p style={{ fontFamily: "RoxboroughCF", fontSize: "12pt", fontStyle: "italic" }}>Thank you!</p>
-    </div>
+      {/* Billing Information Section */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "30px" }}>
+        <div>
+          <h2 style={{ fontFamily: "Inter Medium", fontSize: "14pt", fontWeight: "bold", marginBottom: "10px", color: "#333" }}>BILLED TO:</h2>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555", margin: "5px 0", whiteSpace: "pre-wrap" }}>
+            {clientDetails || "Client details not provided"}
+          </p>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", marginBottom: "5px", color: "#555" }}>Invoice No.: {invoiceNumber}</p>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", marginBottom: "5px", color: "#555" }}>
+            Date: {dateRange.from && dateRange.to ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}` : "Date Not Specified"}
+          </p>
+        </div>
+      </div>
 
-      {/* Payment Information */}
-      <div style={{ textAlign: "left", marginBottom: "20px" }}>
-      <h3 style={{ fontFamily: "Inter Medium", fontSize: "12pt", fontWeight: "bold", marginBottom: "10px", color: "#333333" }}>PAYMENT INFORMATION</h3>
-      <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555555" }}>Account Name: ABC Company</p>
-      <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555555" }}>Bank: XYZ Bank</p>
-      <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555555" }}>Account Number: 123456789</p>
-      <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555555" }}>IFSC Code: XYZB0001234</p>
-    </div>
+      {/* Itemized Table Section */}
+      <div style={{ marginBottom: "30px", borderTop: "1px solid #bcb8b1", paddingTop: "10px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #bcb8b1", paddingBottom: "10px", marginBottom: "10px" }}>
+          <span style={{ fontFamily: "Inter Medium", fontWeight: "bold", fontSize: "12pt", textAlign: "left", flex: 1, color: "#333" }}>Description</span>
+          <span style={{ fontFamily: "Inter Medium", fontWeight: "bold", fontSize: "12pt", textAlign: "center", flex: 0.5, color: "#333" }}>Quantity</span>
+          <span style={{ fontFamily: "Inter Medium", fontWeight: "bold", fontSize: "12pt", textAlign: "center", flex: 0.5, color: "#333" }}>Number of Days</span>
+        </div>
+        {items.map((item, index) => (
+          <div key={index} style={{ display: "flex", justifyContent: "space-between", margin: "10px 0", borderBottom: "1px solid #bcb8b1", paddingBottom: "10px" }}>
+            <span style={{ fontFamily: "Inter", fontSize: "12pt", flex: 1, color: "#555" }}>{item.description || "No description provided"}</span>
+            <span style={{ fontFamily: "Inter", fontSize: "12pt", textAlign: "center", flex: 0.5, color: "#555" }}>{item.quantity || "0"}</span>
+            <span style={{ fontFamily: "Inter", fontSize: "12pt", textAlign: "center", flex: 0.5, color: "#555" }}>{item.numberOfDays || "0"}</span>
+          </div>
+        ))}
+      </div>
 
-    {/* Footer */}
-    <div style={{ textAlign: "right", borderTop: "1px solid #ddd", paddingTop: "10px", fontFamily: "Inter", fontSize: "10pt", color: "#999999" }}>
-      <p>Company Name | Address | Phone | Email</p>
+      {/* Total Section */}
+      <div style={{ textAlign: "right", marginBottom: "40px" }}>
+        <div style={{ paddingTop: "10px" }}>
+          <span style={{
+            fontFamily: "Inter Medium",
+            fontSize: "14pt",
+            fontWeight: "bold",
+            color: "#333",
+            display: "inline-block",
+            width: "150px",
+            textAlign: "right"
+          }}>Total</span>
+          <span style={{
+            fontFamily: "Inter",
+            fontSize: "14pt",
+            fontWeight: "bold",
+            display: "inline-block",
+            marginLeft: "20px",
+            textAlign: "right",
+            color: "#333"
+          }}>₹{parseFloat(total).toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Footer Section */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+        {/* Payment Information */}
+        <div style={{ textAlign: "left" }}>
+          {/* <h3 style={{ fontFamily: "Inter Medium", fontSize: "12pt", fontWeight: "bold", marginBottom: "10px", color: "#333" }}>PAYMENT INFORMATION</h3>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Account Name: ABC Company</p>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Bank: XYZ Bank</p>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Account Number: 123456789</p>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>IFSC Code: XYZB0001234</p> */}
+        </div>
+        {/* Footer */}
+        <div style={{ textAlign: "right" }}>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>White Branding</p>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Thrissur, Kerala</p>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>9645206022</p>
+          <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>whitebranding0@gmail.com</p>
+        </div>
+      </div>
+
+      {/* Thank You Message */}
+      <div style={{ textAlign: "center", marginTop: "40px" }}>
+        <p style={{ fontFamily: "RoxboroughCF", fontSize: "14pt", fontStyle: "italic", color: "#333" }}>Thank you!</p>
+      </div>
     </div>
   </div>
 ));
