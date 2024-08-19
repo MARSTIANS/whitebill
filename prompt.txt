@@ -1,185 +1,584 @@
-import React, { useRef } from "react";
-import { Button } from "@/components/ui/button";
-import ReactToPrint from "react-to-print";
+import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { supabase } from '../supabase';
+import { useToast } from '@/components/ui/use-toast';
+import { format, isValid } from 'date-fns';
 
-const PrintUI = ({ items, calculateTotal }) => {
-  const componentRef = useRef();
+const Remainders = () => {
+  const [remainders, setRemainders] = useState([]);
+  const [selectedRemainder, setSelectedRemainder] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchRemainders();
+    const interval = setInterval(checkDueDates, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchRemainders = async () => {
+    const { data: remainderData, error } = await supabase.from('remainders').select('*');
+    if (error) {
+      console.error('Error fetching remainders:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load remainders.',
+        variant: 'destructive',
+      });
+    } else {
+      setRemainders(remainderData);
+    }
+  };
+
+  const handleAddOrUpdateRemainder = async (remainder) => {
+    if (isEditMode) {
+      const { error } = await supabase.from('remainders').update(remainder).eq('id', remainder.id);
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to update remainder.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Remainder updated successfully.',
+          variant: 'positive',
+        });
+      }
+    } else {
+      const { error } = await supabase.from('remainders').insert([remainder]);
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to add remainder.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Remainder added successfully.',
+          variant: 'positive',
+        });
+      }
+    }
+
+    fetchRemainders();
+    setSelectedRemainder(null);
+  };
+
+  const handleDeleteRemainder = async (id) => {
+    const { error } = await supabase.from('remainders').delete().eq('id', id);
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete remainder.',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: 'Remainder deleted successfully.',
+        variant: 'positive',
+      });
+    }
+
+    fetchRemainders();
+  };
+
+  const checkDueDates = () => {
+    const now = new Date();
+    remainders.forEach((remainder) => {
+      if (isValid(new Date(remainder.dueDate)) && new Date(remainder.dueDate) <= now) {
+        toast({
+          title: 'Reminder',
+          description: `The reminder "${remainder.title}" is due now.`,
+          variant: 'warning',
+        });
+      }
+    });
+  };
+
+  const filteredRemainders = remainders.filter((remainder) =>
+    remainder.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    remainder.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div>
-      <ReactToPrint
-        trigger={() => (
-          <Button className="mt-4 w-full">
-            Generate Invoice PDF
+    <div className="flex flex-col min-h-screen">
+      <h1 className="text-2xl font-bold mb-4">Remainders</h1>
+      <Card className="flex flex-col w-full bg-gray-100 p-4">
+        <div className="flex justify-between items-center mb-4">
+          <Input
+            placeholder="Search remainders"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button onClick={() => { setIsEditMode(false); setSelectedRemainder({ title: '', description: '', dueDate: '' }); }}>
+            Add New Remainder
           </Button>
-        )}
-        content={() => componentRef.current}
-      />
+        </div>
+        <div className="mt-4">
+          {filteredRemainders.map((remainder) => (
+            <Card key={remainder.id} className="mb-4">
+              <CardHeader>
+                <CardTitle>{remainder.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p>{remainder.description}</p>
+                <p>
+                  Due: {isValid(new Date(remainder.dueDate))
+                    ? format(new Date(remainder.dueDate), 'PPpp')
+                    : 'No due date set'}
+                </p>
+              </CardContent>
+              <CardFooter className="flex justify-end space-x-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => { setIsEditMode(true); setSelectedRemainder(remainder); }}
+                >
+                  Edit
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => handleDeleteRemainder(remainder.id)}>
+                  Delete
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </Card>
 
-      {/* Hidden Component for Printing */}
-      <div style={{ display: "none" }}>
-        <InvoicePrintComponent ref={componentRef} items={items} calculateTotal={calculateTotal} />
+      {/* Add/Edit Remainder Dialog */}
+      {selectedRemainder && (
+        <Dialog open={!!selectedRemainder} onOpenChange={() => setSelectedRemainder(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isEditMode ? 'Edit Remainder' : 'Add New Remainder'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                placeholder="Remainder Title"
+                value={selectedRemainder.title}
+                onChange={(e) => setSelectedRemainder({ ...selectedRemainder, title: e.target.value })}
+              />
+              <Textarea
+                placeholder="Description"
+                value={selectedRemainder.description}
+                onChange={(e) => setSelectedRemainder({ ...selectedRemainder, description: e.target.value })}
+              />
+              <Input
+                type="datetime-local"
+                placeholder="Due Date"
+                value={selectedRemainder.dueDate}
+                onChange={(e) => setSelectedRemainder({ ...selectedRemainder, dueDate: e.target.value })}
+              />
+            </div>
+            <div className="mt-4 flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setSelectedRemainder(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => handleAddOrUpdateRemainder(selectedRemainder)}>
+                {isEditMode ? 'Save Changes' : 'Add Remainder'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+};
+
+export default Remainders;
+
+,
+import React, { useState } from "react";
+import { Link, Route, Routes, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  ReceiptText,
+  Bell,
+  Calendar,
+  ReceiptIndianRupee,
+  Users,
+} from "lucide-react"; // Added Users icon
+import Billing from "./components/Billing";
+import CalendarSection from "./components/CalendarSection";
+import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
+import Clients from "./components/Clients"; // Import Clients component
+import Remainders from "./components/Remainders"; // Import Remainders component
+
+const HomeComponent = () => {
+  const location = useLocation();
+  const [isCollapsed, setIsCollapsed] = useState(true);
+
+  const handleMouseEnter = () => {
+    setIsCollapsed(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsCollapsed(true);
+  };
+
+  // Updated transition duration to make it faster
+  const sidebarVariants = {
+    expanded: { width: 180 },
+    collapsed: { width: 80 },
+  };
+
+  const textVariants = {
+    hidden: { opacity: 0, width: 0 },
+    visible: { opacity: 1, width: "auto" },
+  };
+
+  const transitionSpeed = 0.07; 
+
+  const navItems = [
+    {
+      path: "calendar",
+      icon: <Calendar className="w-6 h-6 -ml-1 flex-shrink-0" />,
+      label: "Calendar",
+    },
+    {
+      path: "billing",
+      icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />,
+      label: "Billing",
+    },
+    {
+      path: "monthly-expenses",
+      icon: <ReceiptIndianRupee className="w-6 h-6 -ml-1 flex-shrink-0" />,
+      label: "Expenses",
+    },
+    {
+      path: "clients",
+      icon: <Users className="w-6 h-6 -ml-1 flex-shrink-0" />, // New icon for Clients
+      label: "Clients",
+    },
+    {
+      path: "remainders",
+      icon: <Bell className="w-6 h-6 -ml-1 flex-shrink-0" />, // New icon for Remainders
+      label: "Remainders",
+    },
+  ];
+
+  return (
+    <div className="flex h-screen">
+      <motion.div
+        className="h-full bg-white shadow-md flex flex-col justify-between absolute z-20"
+        animate={isCollapsed ? "collapsed" : "expanded"}
+        variants={sidebarVariants}
+        initial="collapsed"
+        transition={{ duration: transitionSpeed }} // Faster sidebar transition
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <Card className="p-4 flex flex-col h-full">
+          <nav className="space-y-4">
+            {navItems.map((item) => (
+              <Button
+                key={item.path}
+                asChild
+                variant="ghost"
+                className={`w-full justify-start ${
+                  location.pathname === `/home/${item.path}`
+                    ? "bg-gray-200"
+                    : "hover:bg-gray-100"
+                }`}
+              >
+                <Link
+                  to={item.path}
+                  className="w-full text-left flex items-center space-x-2"
+                >
+                  {item.icon}
+                  <AnimatePresence>
+                    {!isCollapsed && (
+                      <motion.span
+                        initial="hidden"
+                        animate="visible"
+                        exit="hidden"
+                        variants={textVariants}
+                        transition={{ duration: transitionSpeed }} // Faster text transition
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </Link>
+              </Button>
+            ))}
+          </nav>
+        </Card>
+      </motion.div>
+      <div className="flex-1 p-6 overflow-auto ml-20">
+        <Routes>
+          <Route path="billing" element={<Billing />} />
+          <Route path="calendar" element={<CalendarSection />} />
+          <Route path="monthly-expenses" element={<MonthlyExpenses />} />
+          <Route path="clients" element={<Clients />} /> 
+          <Route path="remainders" element={<Remainders />} /> {/* New route for Remainders */}
+        </Routes>
       </div>
     </div>
   );
 };
 
-const InvoicePrintComponent = React.forwardRef(({ items, calculateTotal }, ref) => (
-  <div ref={ref} style={{ padding: "20px", fontFamily: "Helvetica, Arial, sans-serif" }}>
-    {/* Invoice Header */}
-    <div style={{ marginBottom: "40px" }}>
-      <h1 style={{ fontSize: "24pt", fontWeight: "bold" }}>Invoice No. 12345</h1>
-      <p style={{ fontSize: "18pt" }}>16 June 2025</p>
+export default HomeComponent;
+
+,
+import React, { useState } from "react";
+import { supabase } from "./supabase";
+import { Button } from "./components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useNavigate } from "react-router-dom";
+
+const Login = () => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("username", username)
+      .single();
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    if (!data || data.password !== password) {
+      setError("Invalid username or password");
+      return;
+    }
+
+    navigate("/home");
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Login</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin}>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              {error && <p className="text-red-500">{error}</p>}
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter className="flex justify-end space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setUsername("");
+              setPassword("");
+              setError(null);
+            }}
+          >
+            Reset
+          </Button>
+          <Button onClick={handleLogin}>Login</Button>
+        </CardFooter>
+      </Card>
     </div>
-    <div style={{ marginBottom: "40px" }}>
-      <h2 style={{ fontSize: "20pt", fontWeight: "bold" }}>BILLED TO:</h2>
-      <p style={{ fontSize: "12pt" }}>Imani Olowe</p>
-      <p style={{ fontSize: "12pt" }}>+123-456-7890</p>
-      <p style={{ fontSize: "12pt" }}>63 Ivy Road, Hawkville, GA, USA 31036</p>
-    </div>
+  );
+};
+
+export default Login;
+,
+SUPABASE TABLE :
+create table
+  public.remainders (
+    id uuid not null default extensions.uuid_generate_v4 (),
+    title text not null,
+    description text null,
+    due_date date null,
+    status text null default 'pending'::text,
+    created_at timestamp with time zone null default timezone ('utc'::text, now()),
+    constraint remainders_pkey primary key (id)
+    
+  ) tablespace pg_default;
+  ,
+  this website is built using react , tailwind css , shadcn and supabase.
+### Instruction ###
+
+You MUST implement a recurring event reminder feature in the application. The feature should work as follows:
+
+1) **Recurring Reminder Setup**:
+   - **User Interaction**: When a user clicks the "Add Reminder" button, they should be able to enter the reminder details and select a specific date, such as "10 Jun 2024".
+   - **Recurring Option**: Include a checkbox labeled "Make this recurring" that, when selected, sets the reminder to recur on the same day each month (e.g., the 10th of every month).
+
+2) **Reminder Trigger**:
+   - **Check for Reminders**: Implement logic to check for active reminders each time the user visits, refreshes, or logs into the website.
+   - **Dialog Box**: If today's date matches the reminder date (e.g., it is the 10th of the month), display a dialog box with the reminder details.
+   - **One-Time Display**: Ensure that this dialog box is only shown once per session, even if the user refreshes the page or revisits the site later in the same session.
+  ,
+  SHAD CN CALENDAR USAGE :
+
+import { zodResolver } from "@hookform/resolvers/zod"
+import { format } from "date-fns"
+import { CalendarIcon } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { toast } from "@/components/ui/use-toast"
+
+const FormSchema = z.object({
+  dob: z.date({
+    required_error: "A date of birth is required.",
+  }),
+})
+
+export function CalendarForm() {
+  const form = useForm<z.infer<typeof FormSchema>>({
+    resolver: zodResolver(FormSchema),
+  })
+
+  function onSubmit(data: z.infer<typeof FormSchema>) {
+    toast({
+      title: "You submitted the following values:",
+      description: (
+        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+          <code className="text-white">{JSON.stringify(data, null, 2)}</code>
+        </pre>
+      ),
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <FormField
+          control={form.control}
+          name="dob"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Date of birth</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-[240px] pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                      )}
+                    >
+                      {field.value ? (
+                        format(field.value, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    disabled={(date) =>
+                      date > new Date() || date < new Date("1900-01-01")
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormDescription>
+                Your date of birth is used to calculate your age.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit">Submit</Button>
+      </form>
+    </Form>
+  )
+}
+,
+DIALOG :
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+<Dialog>
+  <DialogTrigger>Open</DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Are you absolutely sure?</DialogTitle>
+      <DialogDescription>
+        This action cannot be undone. This will permanently delete your account
+        and remove your data from our servers.
+      </DialogDescription>
+    </DialogHeader>
+  </DialogContent>
+</Dialog>
 
 
-    <div style={{ marginBottom: "40px" }}>
-      <h2 style={{ fontSize: "20pt", fontWeight: "bold" }}>PAYMENT INFORMATION</h2>
-      <p style={{ fontSize: "12pt" }}>Briard Bank</p>
-      <p style={{ fontSize: "12pt" }}>Account Name: Samira Hadid</p>
-      <p style={{ fontSize: "12pt" }}>Account No.: 123-456-7890</p>
-      <p style={{ fontSize: "12pt" }}>Pay by: 5 July 2025</p>
-    </div>
 
-
-    <div style={{ marginBottom: "40px" }}>
-      <h2 style={{ fontSize: "14pt", fontWeight: "bold" }}>Description</h2>
-      <h2 style={{ fontSize: "14pt", fontWeight: "bold", textAlign: "right" }}>Total</h2>
-      <hr style={{ margin: "10px 0" }} />
-      {items.map((item, index) => (
-        <div key={index} style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "12pt" }}>{item.description}</span>
-          <span style={{ fontSize: "12pt" }}>${parseFloat(item.total).toFixed(2)}</span>
-        </div>
-      ))}
-    </div>
-
-   
-    <div style={{ textAlign: "right", marginBottom: "40px" }}>
-      <div style={{ fontSize: "14pt", fontWeight: "bold" }}>
-        <p>Subtotal: ${calculateTotal().toFixed(2)}</p>
-        <p>Total: ${calculateTotal().toFixed(2)}</p>
-      </div>
-    </div>
-
-
-    <div style={{ textAlign: "center", marginTop: "40px" }}>
-      <p style={{ fontSize: "12pt" }}>Thank you!</p>
-    </div>
-  </div>
-));
-
-export default PrintUI;
-, can you improve the UI of the invoice in PrintUI , i will provide the styles and layout of the invoice I want below :
-
-### Breakdown of the Invoice Layout :
-
-
-### 1. **Logo Section**:
-   - **Position**: Top left of the page.
-   - **Size**: The logo is fairly large, occupying a significant portion of the top-left corner, likely around 1.5 inches in height.
-   - **Color**: Black.
-   - **Font/Graphic**: The logo is a stylized ampersand symbol, likely a graphic element rather than text.
-
-### 2. **Invoice Title ("INVOICE")**:
-   - **Position**: Top right, aligned horizontally with the logo.
-   - **Font Style**: RoxboroughCF.
-   - **Font Size**: Large, approximately 36pt.
-   - **Color**: Black.
-   - **Alignment**: Right-aligned, creating a balanced layout with the logo on the left.
-
-### 3. **Invoice Number and Date**:
-   - **Position**: Below the "INVOICE" title on the right side of the page.
-   - **Font Style**: Inter Medium.
-   - **Font Size**: Approximately 12-14pt.
-   - **Color**: Black.
-   - **Details**: "Invoice No. 12345" and "16 June 2025" are listed, with the invoice number above the date.
-   - **Alignment**: Right-aligned.
-
-### 4. **Billed To Section**:
-   - **Heading ("BILLED TO:")**:
-     - **Position**: Below the logo on the left side of the page.
-     - **Font Style**: Inter Medium.
-     - **Font Size**: Approximately 14pt.
-     - **Color**: Black.
-     - **Alignment**: Left-aligned.
-   - **Client Details**:
-     - **Font Style**: Inter Regular.
-     - **Font Size**: Approximately 12pt.
-     - **Color**: Black.
-     - **Details**: Client name "Imani Olowe," phone number "+123-456-7890," and address "63 Ivy Road, Hawkville, GA, USA 31036".
-     - **Alignment**: Left-aligned, with each line of text positioned directly below the previous one with consistent spacing.
-
-### 5. **Itemized Table Section**:
-   - **Table Header**:
-     - **Position**: Centered horizontally below the "BILLED TO" section and "Invoice No." section.
-     - **Font Style**: Inter Medium.
-     - **Font Size**: Approximately 12pt.
-     - **Color**: Black.
-     - **Headers**: "Description" on the left and "Total" on the right.
-     - **Divider Line**: A thin horizontal line below the headers, spanning the width of the table.
-   - **Table Content**:
-     - **Font Style**: Inter Regular.
-     - **Font Size**: Approximately 12pt.
-     - **Color**: Black.
-     - **Details**: Currently empty, with placeholders for item descriptions and their totals.
-     - **Alignment**: Left-aligned for descriptions, right-aligned for totals.
-
-### 6. **Subtotal and Total Section**:
-   - **Position**: Below the itemized table, right-aligned.
-   - **Font Style**: Inter Medium for "Subtotal" and "Total" labels.
-   - **Font Size**: Approximately 12pt.
-   - **Color**: Black.
-   - **Details**: "Subtotal" and "Total" labels with corresponding amounts, both right-aligned.
-   - **Divider Line**: A thin line separating the items from the subtotal/total section.
-
-### 7. **Thank You Message**:
-   - **Position**: Centered horizontally near the bottom of the page.
-   - **Font Style**: RoxboroughCF.
-   - **Font Size**: Approximately 12pt.
-   - **Color**: Black.
-   - **Text**: "Thank you!"
-   - **Alignment**: Centered.
-
-### 8. **Payment Information Section**:
-   - **Heading ("PAYMENT INFORMATION")**:
-     - **Position**: Bottom left corner of the page.
-     - **Font Style**: Inter Medium.
-     - **Font Size**: Approximately 14pt.
-     - **Color**: Black.
-     - **Alignment**: Left-aligned.
-   - **Payment Details**:
-     - **Font Style**: Inter Regular.
-     - **Font Size**: Approximately 12pt.
-     - **Color**: Black.
-     - **Details**: "Briard Bank," "Account Name: Samira Hadid," "Account No.: 123-456-7890," and "Pay by: 5 July 2025".
-     - **Alignment**: Left-aligned, with each line positioned below the previous one.
-
-### 9. **Footer Section**:
-   - **Position**: Bottom right corner, opposite the payment information.
-   - **Font Style**: Inter Regular.
-   - **Font Size**: Approximately 12pt.
-   - **Color**: Black.
-   - **Details**: "Samira Hadid" and address "123 Anywhere St., Any City, ST 12345".
-   - **Alignment**: Right-aligned, directly opposite the payment information.
-
-### 10. **Spacing and Margins**:
-   - **Margins**: Consistent, ample margins on all sides, contributing to the clean, minimalist look.
-   - **Spacing**: Generous white space between sections, ensuring that the document is not cluttered.
-
-### 11. **Color Scheme**:
-   - **Primary Color**: Black for all text elements, ensuring clarity and readability.
-   - **Background**: White, maintaining a clean, professional appearance.
-
-### Summary:
-The overall design of the invoice is minimalist and professional, with a clear hierarchy in font sizes and styles to differentiate between different sections of the document. The use of bold fonts for headings and key information (like totals) helps to draw attention to the most important details, while the consistent alignment and spacing contribute to a clean and organized layout.
-,  already downloaded fonts and below are import paths :
-import RoxboroughCF from "@/assets/fonts/Roxborough-CF.ttf"; // Assuming the font is stored here
-import Inter from "@/assets/fonts/Inter-Regular.ttf";
-import InterMedium from "@/assets/fonts/Inter-Medium.ttf";

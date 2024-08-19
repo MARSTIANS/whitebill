@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 
-
 const Client = () => {
   const [columns, setColumns] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,7 +48,8 @@ const Client = () => {
   const fetchClients = async () => {
     const { data: clientData, error } = await supabase
       .from('clients')
-      .select('*');
+      .select('*')
+      .order('order', { ascending: true });
 
     if (error) {
       console.error('Error fetching clients:', error);
@@ -139,6 +139,7 @@ const Client = () => {
 
     fetchClients();
   };
+
   const getTextColorClass = (color) => {
     switch (color) {
       case 'blue':
@@ -155,6 +156,7 @@ const Client = () => {
         return 'text-gray-600';
     }
   };
+
   const onDragEnd = async (result) => {
     const { source, destination } = result;
 
@@ -174,6 +176,11 @@ const Client = () => {
       const newColumns = [...columns];
       newColumns[sourceColumnIndex].clients = sourceItems;
       setColumns(newColumns);
+
+      // Update order in the database
+      if (destinationColumn.name.toLowerCase() === 'proposal') {
+        await updateClientOrder(sourceItems);
+      }
     } else {
       const destinationItems = Array.from(destinationColumn.clients);
       destinationItems.splice(destination.index, 0, removed);
@@ -196,6 +203,37 @@ const Client = () => {
           variant: 'destructive',
         });
       }
+
+      // Update order in the database if the destination is the 'Proposal' column
+      if (destinationColumn.name.toLowerCase() === 'proposal') {
+        await updateClientOrder(destinationItems);
+      }
+    }
+  };
+
+  const updateClientOrder = async (clients) => {
+    const updates = clients.map((client, index) => ({
+      id: client.id,
+      order: index,
+      name: client.name,
+      company: client.company,
+      phone: client.phone,
+      location: client.location,
+      status: client.status,
+      client_name: client.client_name
+    }));
+
+    const { error } = await supabase
+      .from('clients')
+      .upsert(updates, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Error updating client order:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update client order.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -310,7 +348,7 @@ const Client = () => {
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                          <AlertDialogAction  onClick={() => handleDeleteClient(client.id)}>
+                                          <AlertDialogAction onClick={() => handleDeleteClient(client.id)}>
                                             Delete
                                           </AlertDialogAction>
                                         </AlertDialogFooter>

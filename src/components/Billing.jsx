@@ -11,19 +11,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "../supabase";
 import { v4 as uuidv4 } from "uuid";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Search } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Trash2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 const Billing = () => {
-  const [items, setItems] = useState([{ description: "", quantity: "", numberOfDays: "", total: "" }]);
+  const [items, setItems] = useState([
+    { description: "Reels", quantity: "", numberOfDays: "", total: "" },
+    { description: "Posters", quantity: "", numberOfDays: "", total: "" },
+    { description: "Total Engagements", quantity: "", numberOfDays: "", total: "" },
+    { description: "Story", quantity: "", numberOfDays: "", total: "" }
+  ]);
   const [billHistory, setBillHistory] = useState([]);
   const [selectedBill, setSelectedBill] = useState(null);
   const [clientDetails, setClientDetails] = useState("");
   const [manualTotal, setManualTotal] = useState(0);
   const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [searchTerm, setSearchTerm] = useState("");
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [isComboBoxOpen, setIsComboBoxOpen] = useState(false);
 
   const generateUniqueInvoiceNumber = async () => {
     let invoiceNumber;
@@ -44,6 +53,20 @@ const Billing = () => {
     return invoiceNumber;
   };
 
+  const fetchClients = async () => {
+    const { data, error } = await supabase.from('clients').select('*');
+    if (error) {
+      console.error('Error fetching clients:', error);
+    } else {
+      setClients(data);
+    }
+  };
+
+  useEffect(() => {
+    fetchClients();
+    fetchBillHistory();
+  }, []);
+
   const addItem = () => {
     setItems([...items, { description: "", quantity: "", numberOfDays: "", total: "" }]);
   };
@@ -55,29 +78,40 @@ const Billing = () => {
   };
 
   const handleBillGenerated = async () => {
-    const invoiceNumber = await generateUniqueInvoiceNumber();  // Generate a unique invoice number
     const newBill = {
       id: uuidv4(),
-      invoice_number: invoiceNumber,
       date: dateRange.from && dateRange.to 
-            ? `${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}` 
-            : new Date().toLocaleDateString(),
+          ? `${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}` 
+          : new Date().toLocaleDateString(),
       total: parseFloat(manualTotal) || 0,
       items: [...items],
       client_details: clientDetails,
     };
-
-    const { data, error } = await supabase
-      .from('bills')
-      .insert([newBill]);
-
-    if (error) {
-      console.error('Error saving bill:', error);
-    } else {
+  
+    try {
+      const { data, error } = await supabase
+        .from('bills')
+        .insert([newBill]);
+  
+      if (error || !data || !data[0]) {
+        console.error('Error saving bill:', error);
+        throw new Error('Bill creation failed');
+      }
+  
       setBillHistory([data[0], ...billHistory]);
-      setItems([{ description: "", quantity: "", numberOfDays: "", total: "" }]);
+      setItems([
+        { description: "Reels", quantity: "", numberOfDays: "", total: "" },
+        { description: "Posters", quantity: "", numberOfDays: "", total: "" },
+        { description: "Total Engagements", quantity: "", numberOfDays: "", total: "" },
+        { description: "Story", quantity: "", numberOfDays: "", total: "" }
+      ]);
       setClientDetails("");  
-      setManualTotal(0);  
+      setManualTotal(0);
+      
+      return newBill; // Return the bill object after successful creation
+    } catch (error) {
+      console.error('Error during bill generation:', error);
+      return null; // Return null or throw an error
     }
   };
 
@@ -94,20 +128,39 @@ const Billing = () => {
     }
   };
 
-  useEffect(() => {
-    fetchBillHistory();
-  }, []);
+  const handleClientSelect = (client) => {
+    setSelectedClient(client);
+    setClientDetails(`${client.company}\n${client.location}\n${client.phone}`);
+    setIsComboBoxOpen(false);
+  };
+
+  const handleDeleteBill = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('bills')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        throw new Error('Error deleting bill');
+      }
+
+      // Update the bill history after deletion
+      setBillHistory(billHistory.filter(bill => bill.id !== id));
+    } catch (error) {
+      console.error('Error deleting bill:', error);
+    }
+  };
 
   const filteredBillHistory = billHistory.filter(bill =>
-    bill.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bill.client_details.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="container mx-auto p-4 font-sans">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">Billing Dashboard</h1>
+    <div className="">
+      <h1 className="text-2xl font-bold mb-4">Billing</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bg-gray-50 shadow-lg rounded-lg overflow-hidden">
+        <Card className="bg-gray-50 shadow-none rounded-lg overflow-hidden">
           <CardHeader className=" text-black">
             <CardTitle className="text-2xl">Enter Bill Details</CardTitle>
           </CardHeader>
@@ -147,6 +200,44 @@ const Billing = () => {
                     onSelect={setDateRange}
                     numberOfMonths={2}
                   />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* ComboBox for Clients */}
+            <div className="mb-6">
+              <Label htmlFor="client-select" className="block text-sm font-medium text-gray-700 mb-2">Select Client</Label>
+              <Popover open={isComboBoxOpen} onOpenChange={setIsComboBoxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="client-select"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !selectedClient && "text-gray-500"
+                    )}
+                  >
+                    {selectedClient ? selectedClient.client_name : "Select a client"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search clients..." />
+                    <CommandList>
+                      <CommandEmpty>No clients found.</CommandEmpty>
+                      <CommandGroup>
+                        {clients.map((client) => (
+                          <CommandItem
+                            key={client.id}
+                            value={client.client_name}
+                            onSelect={() => handleClientSelect(client)}
+                          >
+                            <span>{client.client_name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
                 </PopoverContent>
               </Popover>
             </div>
@@ -200,7 +291,7 @@ const Billing = () => {
               </div>
             ))}
 
-            <Button onClick={addItem} variant="outline" className="mt-4 mb-6 w-full  ">
+            <Button onClick={addItem} variant="outline" className="mt-4 mb-6 w-full">
               Add Item
             </Button>
 
@@ -225,7 +316,7 @@ const Billing = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-50 shadow-lg rounded-lg overflow-hidden">
+        <Card className="bg-gray-50 shadow-none rounded-lg overflow-hidden">
           <CardHeader className=" text-black">
             <CardTitle className="text-2xl">Bill History</CardTitle>
           </CardHeader>
@@ -236,7 +327,7 @@ const Billing = () => {
                 <Input
                   id="search"
                   type="text"
-                  placeholder="Search by invoice number or client..."
+                  placeholder="Search by client details..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -249,12 +340,16 @@ const Billing = () => {
                 <React.Fragment key={bill.id}>
                   <Dialog>
                     <DialogTrigger asChild>
-                      <div className="mb-3 p-1 rounded-md cursor-pointer hover:bg-gray-100 transition duration-300">
+                      <div className="mb-3 p-1 rounded-md cursor-pointer hover:bg-gray-100 transition duration-300 relative group">
                         <div className="flex justify-between items-center">
-                          <span className="font-medium text-sm text-gray-800">{bill.invoice_number}</span>
-                          <span className="font-medium text-sm text-gray-600">{bill.date}</span>
+                          <span className="font-medium text-sm text-gray-800">{bill.date}</span>
+                       
                         </div>
                         <div className="text-sm text-gray-500 mt-1 truncate">{bill.client_details}</div>
+                        <Trash2
+                          className="absolute top-4 right-2 text-red-500 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                          onClick={() => handleDeleteBill(bill.id)}
+                        />
                       </div>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
@@ -263,8 +358,7 @@ const Billing = () => {
                       </DialogHeader>
                       <Separator className="my-4" />
                       <div className="mt-4">
-                        <div className="text-sm font-medium text-gray-500 mb-2">Invoice: {bill.invoice_number}</div>
-                        <div className="text-sm font-medium text-gray-500 mb-4">Date: {bill.date}</div>
+                        <div className="text-sm font-medium text-gray-500 mb-2">Date: {bill.date}</div>
                         {bill.items.map((item, index) => (
                           <div key={index} className="flex justify-between text-sm mb-2">
                             <span className="text-gray-800">{item.description}</span>
@@ -279,7 +373,7 @@ const Billing = () => {
                       <PrintUI
                         items={bill.items}
                         total={bill.total}
-                        invoiceNumber={bill.invoice_number}
+                        onBillGenerated={handleBillGenerated}
                         dateRange={dateRange}
                         clientDetails={bill.client_details}
                       />

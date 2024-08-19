@@ -14,6 +14,7 @@ import Billing from "./components/Billing";
 import CalendarSection from "./components/CalendarSection";
 import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
 import Clients from "./components/Clients"; // Import Clients component
+import Remainders from "./components/Remainders"; // Import Remainders component
 
 const HomeComponent = () => {
   const location = useLocation();
@@ -42,15 +43,14 @@ const HomeComponent = () => {
 
   const navItems = [
     {
-      path: "billing",
-      icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />,
-      label: "Billing",
-    },
-    
-    {
       path: "calendar",
       icon: <Calendar className="w-6 h-6 -ml-1 flex-shrink-0" />,
       label: "Calendar",
+    },
+    {
+      path: "billing",
+      icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />,
+      label: "Billing",
     },
     {
       path: "monthly-expenses",
@@ -61,6 +61,11 @@ const HomeComponent = () => {
       path: "clients",
       icon: <Users className="w-6 h-6 -ml-1 flex-shrink-0" />, // New icon for Clients
       label: "Clients",
+    },
+    {
+      path: "remainders",
+      icon: <Bell className="w-6 h-6 -ml-1 flex-shrink-0" />, // New icon for Remainders
+      label: "Remainders",
     },
   ];
 
@@ -117,8 +122,8 @@ const HomeComponent = () => {
           <Route path="billing" element={<Billing />} />
           <Route path="calendar" element={<CalendarSection />} />
           <Route path="monthly-expenses" element={<MonthlyExpenses />} />
-          <Route path="clients" element={<Clients />} />{" "}
-          {/* New route for Clients */}
+          <Route path="clients" element={<Clients />} /> 
+          <Route path="remainders" element={<Remainders />} /> {/* New route for Remainders */}
         </Routes>
       </div>
     </div>
