@@ -315,13 +315,13 @@ const Client = () => {
                               >
                                 <Card className="mb-2">
                                   <CardHeader>
-                                    <p className="text-lg font-semibold">{client.name}</p>
+                                    <p className="text-lg font-semibold">{client.client_name}</p>
                                     <CardDescription>{client.company}</CardDescription>
                                   </CardHeader>
                                   <CardContent>
                                     <p>{client.phone}</p>
                                     <p>{client.location}</p>
-                                    <p>{client.client_name}</p>
+                                    <p>{client.name}</p>
                                   </CardContent>
                                   <CardFooter className="flex justify-end space-x-2">
                                     <Button

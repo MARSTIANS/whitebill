@@ -78,26 +78,28 @@ const Billing = () => {
   };
 
   const handleBillGenerated = async () => {
+    const formattedDate = dateRange.from && dateRange.to 
+      ? `${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}` 
+      : new Date().toLocaleDateString();
+
     const newBill = {
       id: uuidv4(),
-      date: dateRange.from && dateRange.to 
-          ? `${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}` 
-          : new Date().toLocaleDateString(),
+      date: formattedDate,  // Pass the formatted date here
       total: parseFloat(manualTotal) || 0,
       items: [...items],
       client_details: clientDetails,
     };
-  
+
     try {
       const { data, error } = await supabase
         .from('bills')
         .insert([newBill]);
-  
+
       if (error || !data || !data[0]) {
         console.error('Error saving bill:', error);
         throw new Error('Bill creation failed');
       }
-  
+
       setBillHistory([data[0], ...billHistory]);
       setItems([
         { description: "Reels", quantity: "", numberOfDays: "", total: "" },
@@ -107,11 +109,11 @@ const Billing = () => {
       ]);
       setClientDetails("");  
       setManualTotal(0);
-      
-      return newBill; // Return the bill object after successful creation
+
+      return newBill;  // Return the new bill
     } catch (error) {
       console.error('Error during bill generation:', error);
-      return null; // Return null or throw an error
+      return null;
     }
   };
 
@@ -145,7 +147,6 @@ const Billing = () => {
         throw new Error('Error deleting bill');
       }
 
-      // Update the bill history after deletion
       setBillHistory(billHistory.filter(bill => bill.id !== id));
     } catch (error) {
       console.error('Error deleting bill:', error);
@@ -204,7 +205,6 @@ const Billing = () => {
               </Popover>
             </div>
 
-            {/* ComboBox for Clients */}
             <div className="mb-6">
               <Label htmlFor="client-select" className="block text-sm font-medium text-gray-700 mb-2">Select Client</Label>
               <Popover open={isComboBoxOpen} onOpenChange={setIsComboBoxOpen}>
@@ -310,7 +310,9 @@ const Billing = () => {
               items={items}
               total={manualTotal}
               onBillGenerated={handleBillGenerated}
-              dateRange={dateRange}
+              date={dateRange.from && dateRange.to 
+                ? `${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}` 
+                : new Date().toLocaleDateString()} // Pass the correct date here
               clientDetails={clientDetails}
             />
           </CardContent>
@@ -343,7 +345,6 @@ const Billing = () => {
                       <div className="mb-3 p-1 rounded-md cursor-pointer hover:bg-gray-100 transition duration-300 relative group">
                         <div className="flex justify-between items-center">
                           <span className="font-medium text-sm text-gray-800">{bill.date}</span>
-                       
                         </div>
                         <div className="text-sm text-gray-500 mt-1 truncate">{bill.client_details}</div>
                         <Trash2
@@ -373,8 +374,8 @@ const Billing = () => {
                       <PrintUI
                         items={bill.items}
                         total={bill.total}
-                        onBillGenerated={handleBillGenerated}
-                        dateRange={dateRange}
+                        onBillGenerated={() => {}} 
+                        date={bill.date} 
                         clientDetails={bill.client_details}
                       />
                     </DialogContent>

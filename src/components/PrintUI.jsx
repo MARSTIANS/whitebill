@@ -4,10 +4,9 @@ import ReactToPrint from "react-to-print";
 import RoxboroughCF from "@/assets/fonts/Roxborough-CF.ttf";
 import Inter from "@/assets/fonts/Inter-Regular.ttf";
 import InterMedium from "@/assets/fonts/Inter-Medium.ttf";
-import { format } from "date-fns";  
-import Logo from "@/assets/logo.png"; 
+import Logo from "@/assets/logo1.png"; 
 
-const PrintUI = ({ items, total, onBillGenerated, dateRange, clientDetails }) => {
+const PrintUI = ({ items, total, onBillGenerated, date, clientDetails }) => {
   const componentRef = useRef();
 
   const handlePrint = async () => {
@@ -31,7 +30,7 @@ const PrintUI = ({ items, total, onBillGenerated, dateRange, clientDetails }) =>
           ref={componentRef}
           items={items}
           total={total}
-          dateRange={dateRange}
+          date={date}
           clientDetails={clientDetails}
         />
       </div>
@@ -41,11 +40,7 @@ const PrintUI = ({ items, total, onBillGenerated, dateRange, clientDetails }) =>
 
 class InvoicePrintComponent extends React.Component {
   render() {
-    const { items, total, dateRange, clientDetails } = this.props;
-
-    const formattedDateRange = dateRange && dateRange.from && dateRange.to
-      ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}`
-      : "Date Not Specified";
+    const { items, total, date, clientDetails } = this.props;
 
     return (
       <div ref={this.props.forwardedRef} style={{
@@ -62,16 +57,19 @@ class InvoicePrintComponent extends React.Component {
         flexDirection: "column",
         justifyContent: "center",
       }}>
-        <div style={{ textAlign: "right" , display: "flex" , justifyContent: "space-between" , marginBottom: "30px" }}>
-          <img src={Logo} alt="Logo" style={{ height: "60px" }} />
-          <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "30px" }}>
+          <div style={{ display: "flex", alignItems: "center", marginLeft: "-35px" }}>
+            <img src={Logo} alt="Logo" style={{ width: '250px', height: '170' }} />
+          </div>
+          <div style={{ textAlign: "right" }}>
             <h1 style={{ fontFamily: "RoxboroughCF", fontSize: "28pt", margin: "0", color: "#333" }}>INVOICE</h1>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", marginBottom: "5px", color: "#555" }}>
-              Date: {formattedDateRange}
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", marginTop: "10px", color: "#555" }}>
+              Date: {date || "Date Not Specified"}  {/* Use the date directly from the prop */}
             </p>
           </div>
         </div>
 
+        {/* Billing Information Section */}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "40px" }}>
           <div>
             <h2 style={{ fontFamily: "Inter Medium", fontSize: "14pt", fontWeight: "bold", marginBottom: "10px", color: "#333" }}>BILLED TO:</h2>
@@ -79,8 +77,20 @@ class InvoicePrintComponent extends React.Component {
               {clientDetails || "Client details not provided"}
             </p>
           </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+            <div style={{ textAlign: "left" }}>
+              {/* Optional: Payment Information */}
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>White Branding</p>
+              <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Thrissur, Kerala</p>
+              <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>8606602888</p>
+              <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>whitebranding0@gmail.com</p>
+            </div>
+          </div>
         </div>
 
+        {/* Itemized Table Section */}
         <div style={{ marginBottom: "30px", borderTop: "1px solid #bcb8b1", paddingTop: "10px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #bcb8b1", paddingBottom: "10px", marginBottom: "10px" }}>
             <span style={{ fontFamily: "Inter Medium", fontWeight: "bold", fontSize: "12pt", textAlign: "left", flex: 1, color: "#333" }}>Description</span>
@@ -96,6 +106,7 @@ class InvoicePrintComponent extends React.Component {
           ))}
         </div>
 
+        {/* Total Section */}
         <div style={{ textAlign: "right", marginBottom: "40px" }}>
           <div style={{ paddingTop: "10px" }}>
             <span style={{
@@ -119,18 +130,7 @@ class InvoicePrintComponent extends React.Component {
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
-          <div style={{ textAlign: "left" }}>
-            {/* Optional: Payment Information */}
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>White Branding</p>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Thrissur, Kerala</p>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>8606602888</p>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>whitebranding0@gmail.com</p>
-          </div>
-        </div>
-
+        {/* Thank You Message */}
         <div style={{ textAlign: "center", marginTop: "40px" }}>
           <p style={{ fontFamily: "RoxboroughCF", fontSize: "14pt", fontStyle: "italic", color: "#333" }}>Thank you!</p>
         </div>
