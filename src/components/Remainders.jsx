@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/supabase"; // Make sure this imports the correctly configured client
-import { format, subDays } from "date-fns";
+import { supabase } from "@/supabase";
+import { format } from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { useMediaQuery } from "./hooks/useMediaQuery";
@@ -13,52 +14,27 @@ const Remainders = () => {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [isRecurring, setIsRecurring] = useState(false);
   const [reminders, setReminders] = useState([]);
   const [completedReminders, setCompletedReminders] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   useEffect(() => {
     fetchReminders();
-    fetchNotifications();
-    requestNotificationPermission();
-    
-    // Set up real-time subscription for reminders
-    const remindersSubscription = supabase
-      .channel('reminders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reminders' }, () => {
-        fetchReminders(); // Refetch reminders on any change
-      })
-      .subscribe();
 
-    // Set up real-time subscription for notifications
-    const notificationsSubscription = supabase
-      .channel('notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchNotifications(); // Refetch notifications on any change
+    const remindersSubscription = supabase
+      .channel("reminders")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reminders" }, () => {
+        fetchReminders();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(remindersSubscription);
-      supabase.removeChannel(notificationsSubscription);
     };
   }, []);
-
-  const requestNotificationPermission = () => {
-    if (Notification.permission === "granted") {
-      return;
-    } else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then((permission) => {
-        if (permission === "granted") {
-          console.log("Notification permission granted.");
-        }
-      });
-    }
-  };
 
   const fetchReminders = async () => {
     const { data, error } = await supabase.from("reminders").select("*").eq("completed", false);
@@ -70,24 +46,6 @@ const Remainders = () => {
     else setCompletedReminders(completedData.data);
   };
 
-  const fetchNotifications = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .gte("created_at", subDays(new Date(), 1).toISOString()); // Fetch notifications from the last day
-
-      if (error) {
-        throw error;
-      }
-
-      setNotifications(data);
-      setUnreadCount(data.filter((notification) => !notification.read).length);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-    }
-  };
-
   const saveReminder = async () => {
     if (!title || !date || !time) {
       alert("Please fill in all fields.");
@@ -95,7 +53,13 @@ const Remainders = () => {
     }
 
     const reminderDateTime = new Date(`${date}T${time}`);
-    const newReminder = { title, date: reminderDateTime.toISOString(), completed: false };
+    const newReminder = {
+      title,
+      date: reminderDateTime.toISOString(),
+      completed: false,
+      is_recurring: isRecurring,
+      recurrence_interval: isRecurring ? "monthly" : "none",
+    };
 
     const { data, error } = await supabase.from("reminders").insert([newReminder]);
 
@@ -108,6 +72,7 @@ const Remainders = () => {
       setTitle("");
       setDate("");
       setTime("");
+      setIsRecurring(false);
     } else {
       console.error("No data returned after insert.");
     }
@@ -116,9 +81,18 @@ const Remainders = () => {
 
   const showNotification = async (reminder) => {
     if (Notification.permission === "granted") {
-      new Notification("Reminder", {
-        body: `It's time for: ${reminder.title}`,
-      });
+      console.log("Notification will be triggered:", reminder.title);
+      try {
+        new Notification("Reminder", {
+          body: `It's time for: ${reminder.title}`,
+          icon: "path/to/icon.png", // Add an icon if needed
+          tag: reminder.id, // Unique identifier for the notification
+        });
+      } catch (e) {
+        console.error("Notification error:", e);
+      }
+    } else {
+      console.warn("Notifications are not permitted in this browser.");
     }
     await addNotification(reminder.title, reminder.id);
   };
@@ -132,25 +106,34 @@ const Remainders = () => {
       console.error("Error saving notification:", error);
       return;
     }
-
-    if (data && data.length > 0) {
-      setUnreadCount((prev) => prev + 1);
-    }
   };
 
-  const completeReminder = async (id) => {
-    const { error } = await supabase
-      .from("reminders")
-      .update({ completed: true })
-      .eq("id", id);
+  const completeReminder = async (id, reminder) => {
+    const { error } = await supabase.from("reminders").update({ completed: true }).eq("id", id);
 
     if (error) {
       console.error("Error completing reminder:", error);
       return;
     }
 
-    const completedReminder = reminders.find((reminder) => reminder.id === id);
+    const completedReminder = reminders.find((r) => r.id === id);
     setCompletedReminders((prev) => [...prev, completedReminder]);
+
+    // If the reminder is recurring, create the next occurrence
+    if (reminder.is_recurring && reminder.recurrence_interval === "monthly") {
+      const nextDate = new Date(reminder.date);
+      nextDate.setMonth(nextDate.getMonth() + 1);
+
+      const newReminder = {
+        title: reminder.title,
+        date: nextDate.toISOString(),
+        completed: false,
+        is_recurring: true,
+        recurrence_interval: "monthly",
+      };
+
+      await supabase.from("reminders").insert([newReminder]);
+    }
   };
 
   useEffect(() => {
@@ -160,7 +143,7 @@ const Remainders = () => {
         const reminderTime = new Date(reminder.date);
         if (reminderTime <= now) {
           showNotification(reminder);
-          completeReminder(reminder.id);
+          completeReminder(reminder.id, reminder);
         }
       });
     }, 10000); // Check every 10 seconds
@@ -168,79 +151,34 @@ const Remainders = () => {
     return () => clearInterval(interval);
   }, [reminders]);
 
-  const markAsRead = async (id) => {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read: true })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Error marking notification as read:", error);
-      return;
-    }
-
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    );
-    setUnreadCount((prev) => Math.max(prev - 1, 0));
-  };
-
   const filteredReminders = reminders.filter((reminder) =>
     reminder.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Reminders</h1>
-        <NotificationDropdown
-          notifications={notifications}
-          unreadCount={unreadCount}
-          markAsRead={markAsRead}
-        />
+      <div className="flex justify-between items-center ">
+        <h2 className="text-2xl font-bold mb-4">Reminders</h2>
+        <NotificationDropdown />
       </div>
-
-      {/* Search and Add Button */}
-      <div className="flex justify-between mb-6">
-        <Input
-          type="text"
-          placeholder="Search Reminders..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full mr-4"
-        />
-        {isDesktop ? (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">Add Reminder</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add Reminder</DialogTitle>
-              </DialogHeader>
-              <AddReminderForm
-                title={title}
-                setTitle={setTitle}
-                date={date}
-                setDate={setDate}
-                time={time}
-                setTime={setTime}
-                saveReminder={saveReminder}
-              />
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <Drawer open={open} onOpenChange={setOpen}>
-            <DrawerTrigger asChild>
-              <Button variant="outline">Add Reminder</Button>
-            </DrawerTrigger>
-            <DrawerContent>
-              <DrawerHeader className="text-left">
-                <DrawerTitle>Add Reminder</DrawerTitle>
-              </DrawerHeader>
-              <div className="p-4">
+      <Card className="bg-gray-50 p-4">
+        <div className="flex justify-between mb-6">
+          <Input
+            type="text"
+            placeholder="Search Reminders..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full mr-4"
+          />
+          {isDesktop ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">Add Reminder</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Add Reminder</DialogTitle>
+                </DialogHeader>
                 <AddReminderForm
                   title={title}
                   setTitle={setTitle}
@@ -248,43 +186,77 @@ const Remainders = () => {
                   setDate={setDate}
                   time={time}
                   setTime={setTime}
+                  isRecurring={isRecurring}
+                  setIsRecurring={setIsRecurring}
                   saveReminder={saveReminder}
                 />
-              </div>
-              <DrawerFooter className="pt-2">
-                <DrawerClose asChild>
-                  <Button variant="outline">Cancel</Button>
-                </DrawerClose>
-              </DrawerFooter>
-            </DrawerContent>
-          </Drawer>
-        )}
-      </div>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Drawer open={open} onOpenChange={setOpen}>
+              <DrawerTrigger asChild>
+                <Button variant="outline">Add Reminder</Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader className="text-left">
+                  <DrawerTitle>Add Reminder</DrawerTitle>
+                </DrawerHeader>
+                <div className="p-4">
+                  <AddReminderForm
+                    title={title}
+                    setTitle={setTitle}
+                    date={date}
+                    setDate={setDate}
+                    time={time}
+                    setTime={setTime}
+                    isRecurring={isRecurring}
+                    setIsRecurring={setIsRecurring}
+                    saveReminder={saveReminder}
+                  />
+                </div>
+                <DrawerFooter className="pt-2">
+                  <DrawerClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DrawerClose>
+                </DrawerFooter>
+              </DrawerContent>
+            </Drawer>
+          )}
+        </div>
 
-      {/* Upcoming Reminders */}
-      <h2 className="text-xl font-bold mt-8">Upcoming Reminders</h2>
-      <ul className="mt-4">
-        {filteredReminders.map((reminder) => (
-          <li key={reminder.id} className="mb-2">
-            {reminder.title} - {format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}
-          </li>
-        ))}
-      </ul>
+        <h2 className="text-xl font-bold mt-8">Upcoming Reminders</h2>
+        <ul className="mt-4">
+          {filteredReminders.map((reminder) => (
+            <li key={reminder.id} className="mb-2">
+              {reminder.title} - {format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}
+            </li>
+          ))}
+        </ul>
 
-      {/* Completed Reminders */}
-      <h2 className="text-xl font-bold mt-8">Completed Reminders</h2>
-      <ul className="mt-4">
-        {completedReminders.map((reminder) => (
-          <li key={reminder.id} className="mb-2">
-            {reminder.title} - {format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}
-          </li>
-        ))}
-      </ul>
+        <h2 className="text-xl font-bold mt-8">Completed Reminders</h2>
+        <ul className="mt-4">
+          {completedReminders.map((reminder) => (
+            <li key={reminder.id} className="mb-2">
+              {reminder.title} - {format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}
+            </li>
+          ))}
+        </ul>
+      </Card>
     </div>
   );
 };
 
-const AddReminderForm = ({ title, setTitle, date, setDate, time, setTime, saveReminder }) => (
+const AddReminderForm = ({
+  title,
+  setTitle,
+  date,
+  setDate,
+  time,
+  setTime,
+  isRecurring,
+  setIsRecurring,
+  saveReminder,
+}) => (
   <div>
     <div className="mb-6">
       <Label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
@@ -323,6 +295,20 @@ const AddReminderForm = ({ title, setTitle, date, setDate, time, setTime, saveRe
         onChange={(e) => setTime(e.target.value)}
         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
+    </div>
+
+    <div className="mb-6">
+      <Label htmlFor="recurring" className="block text-sm font-medium text-gray-700 mb-2">
+        Recurring Reminder
+      </Label>
+      <Input
+        id="recurring"
+        type="checkbox"
+        checked={isRecurring}
+        onChange={(e) => setIsRecurring(e.target.checked)}
+        className="mr-2"
+      />
+      <span>Repeat Monthly</span>
     </div>
 
     <Button onClick={saveReminder} className="mt-4 w-full text-white rounded-md py-2 transition-colors">

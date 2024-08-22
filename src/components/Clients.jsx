@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import NotificationDropdown from "./NotificationDropdown";
 
 const Client = () => {
   const [columns, setColumns] = useState([]);
@@ -258,7 +259,11 @@ const Client = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">Clients</h1>
+    <div className="flex justify-between items-center ">
+        <h2 className="text-2xl font-bold mb-4">Clients</h2>
+        <NotificationDropdown />
+      </div>
+
       <Card className="flex px-1 pt-4 flex-col w-[1230px] min-h-screen bg-gray-100">
         <div className="flex px-4 w-[1230px] space-x-4">
           <Input

@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
+import NotificationDropdown from "./NotificationDropdown";
 
 const CATEGORIES = [
   { value: "shoot", label: "Shoot" },
@@ -562,7 +563,10 @@ const CalendarSection = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Event Calendar</h2>
+       <div className="flex justify-between items-center ">
+        <h2 className="text-2xl font-bold mb-4">Event Calendar</h2>
+        <NotificationDropdown />
+      </div>
       <Card className="bg-gray-50 p-4">
         <div className="mb-4 flex space-x-2">
           <Input

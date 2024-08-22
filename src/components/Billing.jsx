@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import NotificationDropdown from "./NotificationDropdown";
 
 const Billing = () => {
   const [items, setItems] = useState([
@@ -159,7 +160,10 @@ const Billing = () => {
 
   return (
     <div className="">
-      <h1 className="text-2xl font-bold mb-4">Billing</h1>
+       <div className="flex justify-between items-center ">
+        <h2 className="text-2xl font-bold mb-4">Billing</h2>
+        <NotificationDropdown />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-gray-50 shadow-none rounded-lg overflow-hidden">
           <CardHeader className=" text-black">
