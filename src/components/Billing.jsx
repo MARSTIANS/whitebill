@@ -80,8 +80,8 @@ const Billing = () => {
 
   const handleBillGenerated = async () => {
     const formattedDate = dateRange.from && dateRange.to 
-      ? `${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}` 
-      : new Date().toLocaleDateString();
+      ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}` 
+      : format(new Date(), "dd/MM/yyyy");
 
     const newBill = {
       id: uuidv4(),
@@ -186,11 +186,11 @@ const Billing = () => {
                     {dateRange?.from ? (
                       dateRange.to ? (
                         <>
-                          {format(dateRange.from, "LLL dd, y")} -{" "}
-                          {format(dateRange.to, "LLL dd, y")}
+                          {format(dateRange.from, "dd/MM/yyyy")} -{" "}
+                          {format(dateRange.to, "dd/MM/yyyy")}
                         </>
                       ) : (
-                        format(dateRange.from, "LLL dd, y")
+                        format(dateRange.from, "dd/MM/yyyy")
                       )
                     ) : (
                       <span>Pick a date range</span>
@@ -315,15 +315,15 @@ const Billing = () => {
               total={manualTotal}
               onBillGenerated={handleBillGenerated}
               date={dateRange.from && dateRange.to 
-                ? `${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}` 
-                : new Date().toLocaleDateString()} // Pass the correct date here
+                ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}` 
+                : format(new Date(), "dd/MM/yyyy")} // Pass the correct date here
               clientDetails={clientDetails}
             />
           </CardContent>
         </Card>
 
         <Card className="bg-gray-50 shadow-none rounded-lg overflow-hidden">
-          <CardHeader className=" text-black">
+          <CardHeader className="text-black">
             <CardTitle className="text-2xl">Bill History</CardTitle>
           </CardHeader>
           <CardContent className="px-6">
