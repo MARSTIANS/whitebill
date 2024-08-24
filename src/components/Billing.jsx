@@ -17,6 +17,14 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import NotificationDropdown from "./NotificationDropdown";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const Billing = () => {
   const [items, setItems] = useState([
@@ -85,7 +93,7 @@ const Billing = () => {
 
     const newBill = {
       id: uuidv4(),
-      date: formattedDate,  // Pass the formatted date here
+      date: formattedDate,
       total: parseFloat(manualTotal) || 0,
       items: [...items],
       client_details: clientDetails,
@@ -111,7 +119,7 @@ const Billing = () => {
       setClientDetails("");  
       setManualTotal(0);
 
-      return newBill;  // Return the new bill
+      return newBill;
     } catch (error) {
       console.error('Error during bill generation:', error);
       return null;
@@ -160,7 +168,7 @@ const Billing = () => {
 
   return (
     <div className="">
-       <div className="flex justify-between items-center ">
+      <div className="flex justify-between items-center ">
         <h2 className="text-2xl font-bold mb-4">Billing</h2>
         <NotificationDropdown />
       </div>
@@ -316,80 +324,82 @@ const Billing = () => {
               onBillGenerated={handleBillGenerated}
               date={dateRange.from && dateRange.to 
                 ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}` 
-                : format(new Date(), "dd/MM/yyyy")} // Pass the correct date here
+                : format(new Date(), "dd/MM/yyyy")}
               clientDetails={clientDetails}
             />
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-50 shadow-none rounded-lg overflow-hidden">
-          <CardHeader className="text-black">
-            <CardTitle className="text-2xl">Bill History</CardTitle>
-          </CardHeader>
-          <CardContent className="px-6">
-            <div className="mb-4">
-              <Label htmlFor="search" className="sr-only">Search Bills</Label>
-              <div className="relative">
-                <Input
-                  id="search"
-                  type="text"
-                  placeholder="Search by client details..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              </div>
-            </div>
-            <ScrollArea className="h-[510px] bg-white w-full rounded-md border p-4">
-              {filteredBillHistory.map((bill) => (
-                <React.Fragment key={bill.id}>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <div className="mb-3 p-1 rounded-md cursor-pointer hover:bg-gray-100 transition duration-300 relative group">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-sm text-gray-800">{bill.date}</span>
-                        </div>
-                        <div className="text-sm text-gray-500 mt-1 truncate">{bill.client_details}</div>
-                        <Trash2
-                          className="absolute top-4 right-2 text-red-500 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                          onClick={() => handleDeleteBill(bill.id)}
-                        />
-                      </div>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle className="text-lg font-semibold text-gray-900">Bill Details</DialogTitle>
-                      </DialogHeader>
-                      <Separator className="my-4" />
-                      <div className="mt-4">
-                        <div className="text-sm font-medium text-gray-500 mb-2">Date: {bill.date}</div>
-                        {bill.items.map((item, index) => (
-                          <div key={index} className="flex justify-between text-sm mb-2">
-                            <span className="text-gray-800">{item.description}</span>
-                            <span className="text-gray-600">Qty: {item.quantity}, Days: {item.numberOfDays}</span>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" className="mt-4 w-full">
+              View Bill History
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="overflow-auto bg-white">
+            <SheetHeader>
+              <SheetTitle>Bill History</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 px-4">
+              <Input
+                id="search"
+                type="text"
+                placeholder="Search by client details..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
+              />
+              <ScrollArea className="h-[510px] bg-white w-full rounded-md border p-4">
+                {filteredBillHistory.map((bill) => (
+                  <React.Fragment key={bill.id}>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <div className="mb-3 p-1 rounded-md cursor-pointer hover:bg-gray-100 transition duration-300 relative group">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm text-gray-800">{bill.date}</span>
                           </div>
-                        ))}
-                        <div className="text-right font-bold mt-4 text-lg text-blue-600">
-                          Total: ₹{bill.total}
+                          <div className="text-sm text-gray-500 mt-1 truncate">{bill.client_details}</div>
+                          <Trash2
+                            className="absolute top-4 right-2 text-red-500 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                            onClick={() => handleDeleteBill(bill.id)}
+                          />
                         </div>
-                      </div>
-                      <Separator className="my-4" />
-                      <PrintUI
-                        items={bill.items}
-                        total={bill.total}
-                        onBillGenerated={() => {}} 
-                        date={bill.date} 
-                        clientDetails={bill.client_details}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                  <Separator className="my-2" />
-                </React.Fragment>
-              ))}
-            </ScrollArea>
-          </CardContent>
-        </Card>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle className="text-lg font-semibold text-gray-900">Bill Details</DialogTitle>
+                        </DialogHeader>
+                        <Separator className="my-4" />
+                        <div className="mt-4">
+                          <div className="text-sm font-medium text-gray-500 mb-2">Date: {bill.date}</div>
+                          {bill.items.map((item, index) => (
+                            <div key={index} className="flex justify-between text-sm mb-2">
+                              <span className="text-gray-800">{item.description}</span>
+                              <span className="text-gray-600">Qty: {item.quantity}, Days: {item.numberOfDays}</span>
+                            </div>
+                          ))}
+                          <div className="text-right font-bold mt-4 text-lg text-blue-600">
+                            Total: ₹{bill.total}
+                          </div>
+                        </div>
+                        <Separator className="my-4" />
+                        <PrintUI
+                          items={bill.items}
+                          total={bill.total}
+                          onBillGenerated={() => {}} 
+                          date={bill.date} 
+                          clientDetails={bill.client_details}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                    <Separator className="my-2" />
+                  </React.Fragment>
+                ))}
+              </ScrollArea>
+            </div>
+        
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );

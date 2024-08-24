@@ -9,10 +9,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import NotificationDropdown from "./NotificationDropdown";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarIcon, Trash2 as TrashIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const Remainders = () => {
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(null);
   const [time, setTime] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [reminders, setReminders] = useState([]);
@@ -70,7 +81,7 @@ const Remainders = () => {
 
     if (data && data.length > 0) {
       setTitle("");
-      setDate("");
+      setDate(null);
       setTime("");
       setIsRecurring(false);
     } else {
@@ -84,7 +95,7 @@ const Remainders = () => {
       console.log("Notification will be triggered:", reminder.title);
       try {
         new Notification("Reminder", {
-          body: `It's time for: ${reminder.title}`,
+          body: ` ${reminder.title}`,
           icon: "path/to/icon.png", // Add an icon if needed
           tag: reminder.id, // Unique identifier for the notification
         });
@@ -136,6 +147,18 @@ const Remainders = () => {
     }
   };
 
+  const deleteReminder = async (id) => {
+    const { error } = await supabase.from("reminders").delete().eq("id", id);
+
+    if (error) {
+      console.error("Error deleting reminder:", error);
+      return;
+    }
+
+    setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
+    setCompletedReminders((prev) => prev.filter((reminder) => reminder.id !== id));
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
@@ -157,27 +180,27 @@ const Remainders = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="flex justify-between items-center ">
+      <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold mb-4">Reminders</h2>
         <NotificationDropdown />
       </div>
-      <Card className="bg-gray-50 p-4">
+      <Card className="bg-gray-50 p-6 shadow-none">
         <div className="flex justify-between mb-6">
           <Input
             type="text"
             placeholder="Search Reminders..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full mr-4"
+            className="w-full mr-4 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           {isDesktop ? (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">Add Reminder</Button>
+                <Button className="">Add Reminder</Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[425px] bg-white rounded-lg shadow-md">
                 <DialogHeader>
-                  <DialogTitle>Add Reminder</DialogTitle>
+                  <DialogTitle className="text-xl font-semibold text-gray-800">Add Reminder</DialogTitle>
                 </DialogHeader>
                 <AddReminderForm
                   title={title}
@@ -195,11 +218,11 @@ const Remainders = () => {
           ) : (
             <Drawer open={open} onOpenChange={setOpen}>
               <DrawerTrigger asChild>
-                <Button variant="outline">Add Reminder</Button>
+                <Button className="">Add Reminder</Button>
               </DrawerTrigger>
-              <DrawerContent>
+              <DrawerContent className="bg-white rounded-lg shadow-md">
                 <DrawerHeader className="text-left">
-                  <DrawerTitle>Add Reminder</DrawerTitle>
+                  <DrawerTitle className="text-xl font-semibold text-gray-800">Add Reminder</DrawerTitle>
                 </DrawerHeader>
                 <div className="p-4">
                   <AddReminderForm
@@ -216,7 +239,7 @@ const Remainders = () => {
                 </div>
                 <DrawerFooter className="pt-2">
                   <DrawerClose asChild>
-                    <Button variant="outline">Cancel</Button>
+                    <Button variant="outline" className="text-lg">Cancel</Button>
                   </DrawerClose>
                 </DrawerFooter>
               </DrawerContent>
@@ -224,23 +247,45 @@ const Remainders = () => {
           )}
         </div>
 
-        <h2 className="text-xl font-bold mt-8">Upcoming Reminders</h2>
+        <h2 className="text-lg font-bold text-gray-700 mt-8">Upcoming Reminders</h2>
         <ul className="mt-4">
           {filteredReminders.map((reminder) => (
-            <li key={reminder.id} className="mb-2">
-              {reminder.title} - {format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}
-            </li>
+            <CardContent
+              key={reminder.id}
+              className="mb-2 p-4 shadow-sm rounded-md flex justify-between items-center bg-white"
+            >
+              <div className="text-gray-900">{reminder.title}</div>
+              <div className="text-gray-600">{format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}</div>
+              <Button variant="ghost" onClick={() => deleteReminder(reminder.id)}>
+                <TrashIcon className="h-5 w-5 text-red-600" />
+              </Button>
+            </CardContent>
           ))}
         </ul>
 
-        <h2 className="text-xl font-bold mt-8">Completed Reminders</h2>
-        <ul className="mt-4">
-          {completedReminders.map((reminder) => (
-            <li key={reminder.id} className="mb-2">
-              {reminder.title} - {format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}
-            </li>
-          ))}
-        </ul>
+        <Accordion type="single" collapsible className="mt-8">
+          <AccordionItem value="completed-reminders">
+            <AccordionTrigger className="text-lg no-underline hover:no-underline font-bold text-gray-700">
+              Completed Reminders
+            </AccordionTrigger>
+            <AccordionContent>
+              <ul className="mt-4">
+                {completedReminders.map((reminder) => (
+                  <CardContent
+                    key={reminder.id}
+                    className="mb-2 p-4 shadow-sm rounded-md flex justify-between items-center bg-white"
+                  >
+                    <div className="text-gray-900">{reminder.title}</div>
+                    <div className="text-gray-600">{format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}</div>
+                    <Button variant="ghost" onClick={() => deleteReminder(reminder.id)}>
+                      <TrashIcon className="h-5 w-5 text-red-600" />
+                    </Button>
+                  </CardContent>
+                ))}
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </Card>
     </div>
   );
@@ -256,65 +301,86 @@ const AddReminderForm = ({
   isRecurring,
   setIsRecurring,
   saveReminder,
-}) => (
-  <div>
-    <div className="mb-6">
-      <Label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-        Reminder Title
-      </Label>
-      <Input
-        id="title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Enter reminder title"
-        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
-    </div>
+}) => {
+  return (
+    <div>
+      <div className="mb-6">
+        <Label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+          Reminder Title
+        </Label>
+        <Input
+          id="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Enter reminder title"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
 
-    <div className="mb-6">
-      <Label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
-        Date
-      </Label>
-      <Input
-        id="date"
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
-    </div>
+      <div className="mb-6">
+        <Label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
+          Date
+        </Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                !date && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(new Date(date), "PPP") : <span>Pick a date</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={date ? new Date(date) : undefined}
+              onSelect={(selectedDate) => {
+                const adjustedDate = new Date(selectedDate);
+                adjustedDate.setHours(12, 0, 0, 0); // Set to noon to avoid time zone issues
+                setDate(adjustedDate.toISOString().split('T')[0]);
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
 
-    <div className="mb-6">
-      <Label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">
-        Time
-      </Label>
-      <Input
-        id="time"
-        type="time"
-        value={time}
-        onChange={(e) => setTime(e.target.value)}
-        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
-    </div>
+      <div className="mb-6">
+        <Label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">
+          Time
+        </Label>
+        <Input
+          id="time"
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
 
-    <div className="mb-6">
-      <Label htmlFor="recurring" className="block text-sm font-medium text-gray-700 mb-2">
-        Recurring Reminder
-      </Label>
-      <Input
-        id="recurring"
-        type="checkbox"
-        checked={isRecurring}
-        onChange={(e) => setIsRecurring(e.target.checked)}
-        className="mr-2"
-      />
-      <span>Repeat Monthly</span>
-    </div>
+      <div className="mb-6 ">
+        <Label htmlFor="recurring" className="block text-sm font-medium text-gray-700 mb-2">
+          Recurring Reminder
+        </Label>
+        <div className="space-x-2 ">
+          <Checkbox
+            id="recurring"
+            checked={isRecurring}
+            onCheckedChange={(checked) => setIsRecurring(checked)}
+          />
+          <span>Repeat Monthly</span>
+        </div>
+      </div>
 
-    <Button onClick={saveReminder} className="mt-4 w-full text-white rounded-md py-2 transition-colors">
-      Save Reminder
-    </Button>
-  </div>
-);
+      <Button onClick={saveReminder} className="mt-4 w-full text-white bg-blue-600 hover:bg-blue-700 rounded-md py-2 transition-colors">
+        Save Reminder
+      </Button>
+    </div>
+  );
+};
 
 export default Remainders;

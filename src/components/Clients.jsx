@@ -100,7 +100,9 @@ const Client = () => {
         });
       }
     } else {
-      const { error } = await supabase.from('clients').insert([client]);
+      const { data, error } = await supabase
+        .from('clients')
+        .insert([{ ...client, order: 0 }]);
 
       if (error) {
         toast({
@@ -114,6 +116,19 @@ const Client = () => {
           description: 'Client added successfully.',
           variant: 'positive',
         });
+
+        // Insert at the start of the relevant column
+        const updatedColumns = columns.map(column => {
+          if (column.name.toLowerCase() === client.status) {
+            return {
+              ...column,
+              clients: [data[0], ...column.clients],
+            };
+          }
+          return column;
+        });
+
+        setColumns(updatedColumns);
       }
     }
 
@@ -139,23 +154,6 @@ const Client = () => {
     }
 
     fetchClients();
-  };
-
-  const getTextColorClass = (color) => {
-    switch (color) {
-      case 'blue':
-        return 'text-blue-600';
-      case 'red':
-        return 'text-red-600';
-      case 'green':
-        return 'text-green-600';
-      case 'yellow':
-        return 'text-yellow-600';
-      case 'purple':
-        return 'text-purple-600';
-      default:
-        return 'text-gray-600';
-    }
   };
 
   const onDragEnd = async (result) => {
@@ -184,7 +182,9 @@ const Client = () => {
       }
     } else {
       const destinationItems = Array.from(destinationColumn.clients);
-      destinationItems.splice(destination.index, 0, removed);
+      // Insert at the start of the destination column
+      destinationItems.unshift(removed);
+
       const newColumns = [...columns];
       newColumns[sourceColumnIndex].clients = sourceItems;
       newColumns[destinationColumnIndex].clients = destinationItems;
@@ -193,7 +193,7 @@ const Client = () => {
       removed.status = destination.droppableId.toLowerCase();
       const { error } = await supabase
         .from('clients')
-        .update({ status: removed.status })
+        .update({ status: removed.status, order: 0 })
         .eq('id', removed.id);
 
       if (error) {
@@ -205,10 +205,9 @@ const Client = () => {
         });
       }
 
-      // Update order in the database if the destination is the 'Proposal' column
-      if (destinationColumn.name.toLowerCase() === 'proposal') {
-        await updateClientOrder(destinationItems);
-      }
+      // Update order in the database for both columns
+      await updateClientOrder(sourceItems);
+      await updateClientOrder(destinationItems);
     }
   };
 
@@ -259,12 +258,12 @@ const Client = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-    <div className="flex justify-between items-center ">
+      <div className="flex justify-between items-center ">
         <h2 className="text-2xl font-bold mb-4">Clients</h2>
         <NotificationDropdown />
       </div>
 
-      <Card className="flex px-1 pt-4 flex-col w-[1230px] min-h-screen bg-gray-100">
+      <Card className="flex px-1 pt-4 flex-col w-[1230px] min-h-screen bg-gray-50">
         <div className="flex px-4 w-[1230px] space-x-4">
           <Input
             placeholder="Search clients"
@@ -318,16 +317,12 @@ const Client = () => {
                                 {...provided.dragHandleProps}
                                 className="mb-2"
                               >
-                                <Card className="mb-2">
+                                <Card className="mb-2 ">
                                   <CardHeader>
                                     <p className="text-lg font-semibold">{client.client_name}</p>
-                                    <CardDescription>{client.company}</CardDescription>
+                                    <CardDescription>{client.name}</CardDescription>
                                   </CardHeader>
-                                  <CardContent>
-                                    <p>{client.phone}</p>
-                                    <p>{client.location}</p>
-                                    <p>{client.name}</p>
-                                  </CardContent>
+                              
                                   <CardFooter className="flex justify-end space-x-2">
                                     <Button
                                       variant="ghost"

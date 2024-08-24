@@ -79,20 +79,27 @@ const NotificationDropdown = () => {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-4 mr-8">
-        <h3 className="font-bold mb-2">Notifications</h3>
+      <PopoverContent className="w-80 p-4 shadow-lg rounded-md bg-white mr-5">
+        <h3 className="font-bold mb-3">Notifications</h3>
         {notifications.length === 0 ? (
-          <p>No notifications</p>
+          <div className="text-center text-gray-600">
+            <p className="mb-1">No notifications</p>
+            <p className="text-sm">You're all caught up!</p>
+          </div>
         ) : (
-          <ul>
+          <ul className="space-y-2 max-h-64 overflow-auto">
             {notifications.map((notification) => (
               <li
                 key={notification.id}
-                className={`mb-2 ${notification.read ? "text-gray-500" : "text-black"}`}
+                className={`p-3 rounded-md flex items-start space-x-3 ${
+                  notification.read ? "bg-gray-100" : "bg-blue-50"
+                } hover:bg-gray-200 transition-colors duration-150`}
               >
-                <div>
-                  <p>{notification.message}</p>
-                  <p className="text-xs text-gray-400">
+                <div className="flex-grow">
+                  <p className={`font-semibold ${notification.read ? "text-gray-600" : "text-gray-900"}`}>
+                    {notification.message}
+                  </p>
+                  <p className="text-xs text-gray-500">
                     {format(new Date(notification.created_at), "dd/MM/yyyy HH:mm")}
                   </p>
                 </div>

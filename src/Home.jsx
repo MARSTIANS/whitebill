@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, Route, Routes, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
@@ -9,26 +9,57 @@ import {
   Calendar,
   ReceiptIndianRupee,
   Users,
-} from "lucide-react"; // Added Users icon
+  ClipboardCheck 
+} from "lucide-react";
 import Billing from "./components/Billing";
 import CalendarSection from "./components/CalendarSection";
 import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
-import Clients from "./components/Clients"; // Import Clients component
-import Remainders from "./components/Remainders"; // Import Remainders component
+import Clients from "./components/Clients";
+import Remainders from "./components/Remainders";
 
-const HomeComponent = () => {
+const Home = () => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    // Check if the device is a touch device
+    const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    setIsTouchDevice(isTouch);
+  }, []);
 
   const handleMouseEnter = () => {
-    setIsCollapsed(false);
+    if (!isTouchDevice) setIsCollapsed(false);
   };
 
   const handleMouseLeave = () => {
-    setIsCollapsed(true);
+    if (!isTouchDevice) setIsCollapsed(true);
   };
 
-  // Updated transition duration to make it faster
+  const handleSidebarClick = () => {
+    if (isTouchDevice) setIsCollapsed(!isCollapsed);
+  };
+
+  const handleOutsideClick = (e) => {
+    if (isTouchDevice && isCollapsed === false) {
+      const sidebar = document.getElementById("sidebar");
+      if (sidebar && !sidebar.contains(e.target)) {
+        setIsCollapsed(true);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isTouchDevice) {
+      document.addEventListener("touchstart", handleOutsideClick);
+    }
+    return () => {
+      if (isTouchDevice) {
+        document.removeEventListener("touchstart", handleOutsideClick);
+      }
+    };
+  }, [isCollapsed, isTouchDevice]);
+
   const sidebarVariants = {
     expanded: { width: 180 },
     collapsed: { width: 80 },
@@ -39,7 +70,7 @@ const HomeComponent = () => {
     visible: { opacity: 1, width: "auto" },
   };
 
-  const transitionSpeed = 0.07; 
+  const transitionSpeed = 0.07;
 
   const navItems = [
     {
@@ -59,12 +90,12 @@ const HomeComponent = () => {
     },
     {
       path: "clients",
-      icon: <Users className="w-6 h-6 -ml-1 flex-shrink-0" />, // New icon for Clients
+      icon: <Users className="w-6 h-6 -ml-1 flex-shrink-0" />,
       label: "Clients",
     },
     {
       path: "remainders",
-      icon: <Bell className="w-6 h-6 -ml-1 flex-shrink-0" />, // New icon for Remainders
+      icon: <ClipboardCheck  className="w-6 h-6 -ml-1 flex-shrink-0" />,
       label: "Remainders",
     },
   ];
@@ -72,13 +103,15 @@ const HomeComponent = () => {
   return (
     <div className="flex h-screen">
       <motion.div
+        id="sidebar"
         className="h-full bg-white shadow-md flex flex-col justify-between absolute z-20"
         animate={isCollapsed ? "collapsed" : "expanded"}
         variants={sidebarVariants}
         initial="collapsed"
-        transition={{ duration: transitionSpeed }} // Faster sidebar transition
+        transition={{ duration: transitionSpeed }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onTouchStart={handleSidebarClick} // Toggle sidebar on touch start
       >
         <Card className="p-4 flex flex-col h-full">
           <nav className="space-y-4">
@@ -92,6 +125,7 @@ const HomeComponent = () => {
                     ? "bg-gray-200"
                     : "hover:bg-gray-100"
                 }`}
+                onTouchStart={(e) => e.stopPropagation()} // Prevent sidebar collapse when touching an icon
               >
                 <Link
                   to={item.path}
@@ -105,7 +139,7 @@ const HomeComponent = () => {
                         animate="visible"
                         exit="hidden"
                         variants={textVariants}
-                        transition={{ duration: transitionSpeed }} // Faster text transition
+                        transition={{ duration: transitionSpeed }}
                       >
                         {item.label}
                       </motion.span>
@@ -122,12 +156,12 @@ const HomeComponent = () => {
           <Route path="billing" element={<Billing />} />
           <Route path="calendar" element={<CalendarSection />} />
           <Route path="monthly-expenses" element={<MonthlyExpenses />} />
-          <Route path="clients" element={<Clients />} /> 
-          <Route path="remainders" element={<Remainders />} /> {/* New route for Remainders */}
+          <Route path="clients" element={<Clients />} />
+          <Route path="remainders" element={<Remainders />} />
         </Routes>
       </div>
     </div>
   );
 };
 
-export default HomeComponent;
+export default Home;
