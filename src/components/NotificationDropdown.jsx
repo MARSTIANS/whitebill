@@ -82,9 +82,9 @@ const NotificationDropdown = () => {
       <PopoverContent className="w-80 p-4 shadow-lg rounded-md bg-white mr-5">
         <h3 className="font-bold mb-3">Notifications</h3>
         {notifications.length === 0 ? (
-          <div className="text-center text-gray-600">
+          <div className=" text-gray-600">
             <p className="mb-1">No notifications</p>
-            <p className="text-sm">You're all caught up!</p>
+    
           </div>
         ) : (
           <ul className="space-y-2 max-h-64 overflow-auto">

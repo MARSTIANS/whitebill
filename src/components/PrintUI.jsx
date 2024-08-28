@@ -1,12 +1,9 @@
 import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import ReactToPrint from "react-to-print";
-import RoxboroughCF from "@/assets/fonts/Roxborough-CF.ttf";
-import Inter from "@/assets/fonts/Inter-Regular.ttf";
-import InterMedium from "@/assets/fonts/Inter-Medium.ttf";
 import Logo from "@/assets/logo1.png"; 
 
-const PrintUI = ({ items, total, onBillGenerated, date, clientDetails }) => {
+const PrintUI = ({ items, total, oldBalance, extraShoot, onBillGenerated, date, clientDetails }) => {
   const componentRef = useRef();
 
   const handlePrint = async () => {
@@ -30,6 +27,8 @@ const PrintUI = ({ items, total, onBillGenerated, date, clientDetails }) => {
           ref={componentRef}
           items={items}
           total={total}
+          oldBalance={oldBalance} 
+          extraShoot={extraShoot} 
           date={date}
           clientDetails={clientDetails}
         />
@@ -40,7 +39,7 @@ const PrintUI = ({ items, total, onBillGenerated, date, clientDetails }) => {
 
 class InvoicePrintComponent extends React.Component {
   render() {
-    const { items, total, date, clientDetails } = this.props;
+    const { items, total, oldBalance, extraShoot, date, clientDetails } = this.props;
 
     return (
       <div ref={this.props.forwardedRef} style={{
@@ -59,12 +58,12 @@ class InvoicePrintComponent extends React.Component {
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "30px" }}>
           <div style={{ display: "flex", alignItems: "center", marginLeft: "-35px" }}>
-            <img src={Logo} alt="Logo" style={{ width: '250px', height: '170' }} />
+            <img src={Logo} alt="Logo" style={{ width: '250px', height: '170px' }} />
           </div>
           <div style={{ textAlign: "right" }}>
             <h1 style={{ fontFamily: "RoxboroughCF", fontSize: "28pt", margin: "0", color: "#333" }}>INVOICE</h1>
             <p style={{ fontFamily: "Inter", fontSize: "12pt", marginTop: "10px", color: "#555" }}>
-              Date: {date || "Date Not Specified"}  {/* Use the date directly from the prop */}
+              Date: {date || "Date Not Specified"}
             </p>
           </div>
         </div>
@@ -106,8 +105,51 @@ class InvoicePrintComponent extends React.Component {
           ))}
         </div>
 
-        {/* Total Section */}
+        {/* Old Balance, Extra Shoot, and Total Section */}
         <div style={{ textAlign: "right", marginBottom: "40px" }}>
+        <div style={{ paddingTop: "10px" }}>
+            <span style={{
+              fontFamily: "Inter Medium",
+              fontSize: "11pt",
+              fontWeight: "bold",
+              color: "#333",
+              display: "inline-block",
+              width: "150px",
+              textAlign: "right"
+            }}>Extra Shoot</span>
+            <span style={{
+              fontFamily: "Inter",
+              fontSize: "11pt",
+              fontWeight: "bold",
+              display: "inline-block",
+              marginLeft: "20px",
+              textAlign: "right",
+              color: "#333"
+            }}>₹{parseFloat(extraShoot).toFixed(2)}</span>
+          </div>
+          <div style={{ paddingTop: "10px" }}>
+            <span style={{
+              fontFamily: "Inter Medium",
+              fontSize: "11pt",
+              fontWeight: "bold",
+              color: "#333",
+              display: "inline-block",
+              width: "150px",
+              textAlign: "right"
+            }}>Old Balance</span>
+            <span style={{
+              fontFamily: "Inter",
+              fontSize: "11pt",
+              fontWeight: "bold",
+              display: "inline-block",
+              marginLeft: "20px",
+              textAlign: "right",
+              color: "#333"
+            }}>₹{parseFloat(oldBalance).toFixed(2)}</span>
+          </div>
+
+    
+
           <div style={{ paddingTop: "10px" }}>
             <span style={{
               fontFamily: "Inter Medium",

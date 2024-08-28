@@ -9,13 +9,17 @@ import {
   Calendar,
   ReceiptIndianRupee,
   Users,
-  ClipboardCheck 
+
+  AlarmClock,
+  CheckCircle // New icon for Attendance
 } from "lucide-react";
 import Billing from "./components/Billing";
 import CalendarSection from "./components/CalendarSection";
 import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
 import Clients from "./components/Clients";
 import Remainders from "./components/Remainders";
+import Attendance from "./components/Attendance"; 
+import StaffAttendanceDetails from "./components/StaffAttendanceDetails";
 
 const Home = () => {
   const location = useLocation();
@@ -23,7 +27,6 @@ const Home = () => {
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
-    // Check if the device is a touch device
     const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
     setIsTouchDevice(isTouch);
   }, []);
@@ -95,8 +98,13 @@ const Home = () => {
     },
     {
       path: "remainders",
-      icon: <ClipboardCheck  className="w-6 h-6 -ml-1 flex-shrink-0" />,
+      icon: <AlarmClock className="w-6 h-6 -ml-1 flex-shrink-0" />,
       label: "Remainders",
+    },
+    {
+      path: "attendance",
+      icon: <CheckCircle className="w-6 h-6 -ml-1 flex-shrink-0" />, // New Attendance icon
+      label: "Attendance",
     },
   ];
 
@@ -111,7 +119,7 @@ const Home = () => {
         transition={{ duration: transitionSpeed }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        onTouchStart={handleSidebarClick} // Toggle sidebar on touch start
+        onTouchStart={handleSidebarClick}
       >
         <Card className="p-4 flex flex-col h-full">
           <nav className="space-y-4">
@@ -125,7 +133,7 @@ const Home = () => {
                     ? "bg-gray-200"
                     : "hover:bg-gray-100"
                 }`}
-                onTouchStart={(e) => e.stopPropagation()} // Prevent sidebar collapse when touching an icon
+                onTouchStart={(e) => e.stopPropagation()}
               >
                 <Link
                   to={item.path}
@@ -158,6 +166,8 @@ const Home = () => {
           <Route path="monthly-expenses" element={<MonthlyExpenses />} />
           <Route path="clients" element={<Clients />} />
           <Route path="remainders" element={<Remainders />} />
+          <Route path="attendance" element={<Attendance />} /> 
+          <Route path="attendance/:id" element={<StaffAttendanceDetails />} />
         </Routes>
       </div>
     </div>

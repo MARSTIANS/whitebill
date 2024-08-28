@@ -11,20 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "../supabase";
 import { v4 as uuidv4 } from "uuid";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Search, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import NotificationDropdown from "./NotificationDropdown";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const Billing = () => {
   const [items, setItems] = useState([
@@ -34,33 +27,20 @@ const Billing = () => {
     { description: "Story", quantity: "", numberOfDays: "", total: "" }
   ]);
   const [billHistory, setBillHistory] = useState([]);
-  const [selectedBill, setSelectedBill] = useState(null);
   const [clientDetails, setClientDetails] = useState("");
   const [manualTotal, setManualTotal] = useState(0);
+  const [oldBalance, setOldBalance] = useState(0);  // New state for old balance
+  const [extraShoot, setExtraShoot] = useState(0);  // New state for extra shoot
   const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [searchTerm, setSearchTerm] = useState("");
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [isComboBoxOpen, setIsComboBoxOpen] = useState(false);
 
-  const generateUniqueInvoiceNumber = async () => {
-    let invoiceNumber;
-    let exists = true;
-
-    while (exists) {
-      invoiceNumber = `INV-${uuidv4().split('-')[0]}`;
-      const { data } = await supabase
-        .from('bills')
-        .select('invoice_number')
-        .eq('invoice_number', invoiceNumber);
-
-      if (data.length === 0) {
-        exists = false;
-      }
-    }
-
-    return invoiceNumber;
-  };
+  useEffect(() => {
+    fetchClients();
+    fetchBillHistory();
+  }, []);
 
   const fetchClients = async () => {
     const { data, error } = await supabase.from('clients').select('*');
@@ -70,11 +50,6 @@ const Billing = () => {
       setClients(data);
     }
   };
-
-  useEffect(() => {
-    fetchClients();
-    fetchBillHistory();
-  }, []);
 
   const addItem = () => {
     setItems([...items, { description: "", quantity: "", numberOfDays: "", total: "" }]);
@@ -97,6 +72,8 @@ const Billing = () => {
       total: parseFloat(manualTotal) || 0,
       items: [...items],
       client_details: clientDetails,
+      old_balance: parseFloat(oldBalance) || 0,  // Include old balance in the new bill object
+      extra_shoot: parseFloat(extraShoot) || 0,  // Include extra shoot in the new bill object
     };
 
     try {
@@ -116,8 +93,10 @@ const Billing = () => {
         { description: "Total Engagements", quantity: "", numberOfDays: "", total: "" },
         { description: "Story", quantity: "", numberOfDays: "", total: "" }
       ]);
-      setClientDetails("");  
+      setClientDetails("");
       setManualTotal(0);
+      setOldBalance(0);  // Reset old balance
+      setExtraShoot(0);  // Reset extra shoot
 
       return newBill;
     } catch (error) {
@@ -178,6 +157,8 @@ const Billing = () => {
             <CardTitle className="text-2xl">Enter Bill Details</CardTitle>
           </CardHeader>
           <CardContent className="px-6">
+            {/* Other input fields and labels */}
+
             <div className="mb-6">
               <Label htmlFor="dateRange" className="block text-sm font-medium text-gray-700 mb-2">Select Date Range</Label>
               <Popover>
@@ -318,9 +299,33 @@ const Billing = () => {
               />
             </div>
 
+            <div className="mb-6">
+              <Label htmlFor="old-balance" className="block text-sm font-medium text-gray-700 mb-2">Old Balance</Label>
+              <Input
+                id="old-balance"
+                type="number"
+                value={oldBalance}
+                onChange={(e) => setOldBalance(e.target.value)}
+                className="w-full p-3 text-right font-bold border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="mb-6">
+              <Label htmlFor="extra-shoot" className="block text-sm font-medium text-gray-700 mb-2">Extra Shoot</Label>
+              <Input
+                id="extra-shoot"
+                type="number"
+                value={extraShoot}
+                onChange={(e) => setExtraShoot(e.target.value)}
+                className="w-full p-3 text-right font-bold border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
             <PrintUI
               items={items}
               total={manualTotal}
+              oldBalance={oldBalance}  // Pass old balance to PrintUI
+              extraShoot={extraShoot}  // Pass extra shoot to PrintUI
               onBillGenerated={handleBillGenerated}
               date={dateRange.from && dateRange.to 
                 ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}` 
@@ -381,11 +386,19 @@ const Billing = () => {
                           <div className="text-right font-bold mt-4 text-lg text-blue-600">
                             Total: ₹{bill.total}
                           </div>
+                          <div className="text-right font-bold mt-4 text-lg text-blue-600">
+                            Old Balance: ₹{bill.old_balance}
+                          </div>
+                          <div className="text-right font-bold mt-4 text-lg text-blue-600">
+                            Extra Shoot: ₹{bill.extra_shoot}
+                          </div>
                         </div>
                         <Separator className="my-4" />
                         <PrintUI
                           items={bill.items}
                           total={bill.total}
+                          oldBalance={bill.old_balance}
+                          extraShoot={bill.extra_shoot}
                           onBillGenerated={() => {}} 
                           date={bill.date} 
                           clientDetails={bill.client_details}
