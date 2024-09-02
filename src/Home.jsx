@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Link, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Route, Routes, useLocation, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   ReceiptText,
-  Bell,
   Calendar,
   ReceiptIndianRupee,
   Users,
-
   AlarmClock,
   CheckCircle // New icon for Attendance
 } from "lucide-react";
@@ -18,33 +16,39 @@ import CalendarSection from "./components/CalendarSection";
 import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
 import Clients from "./components/Clients";
 import Remainders from "./components/Remainders";
-import Attendance from "./components/Attendance"; 
+import Attendance from "./components/Attendance";
 import StaffAttendanceDetails from "./components/StaffAttendanceDetails";
 
 const Home = () => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
   useEffect(() => {
-    const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-    setIsTouchDevice(isTouch);
+    const checkIfTablet = () => {
+      const width = window.innerWidth;
+      setIsTablet(width >= 768 && width < 1024);
+    };
+
+    checkIfTablet();
+    window.addEventListener("resize", checkIfTablet);
+
+    return () => window.removeEventListener("resize", checkIfTablet);
   }, []);
 
-  const handleMouseEnter = () => {
-    if (!isTouchDevice) setIsCollapsed(false);
-  };
-
-  const handleMouseLeave = () => {
-    if (!isTouchDevice) setIsCollapsed(true);
-  };
-
   const handleSidebarClick = () => {
-    if (isTouchDevice) setIsCollapsed(!isCollapsed);
+    if (isTablet) setIsCollapsed(!isCollapsed);
+  };
+
+  const handleIconClick = (path) => {
+    if (isTablet) {
+      setIsCollapsed(true);
+      window.location.pathname = `/home/${path}`;
+    }
   };
 
   const handleOutsideClick = (e) => {
-    if (isTouchDevice && isCollapsed === false) {
+    if (isTablet && !isCollapsed) {
       const sidebar = document.getElementById("sidebar");
       if (sidebar && !sidebar.contains(e.target)) {
         setIsCollapsed(true);
@@ -53,15 +57,15 @@ const Home = () => {
   };
 
   useEffect(() => {
-    if (isTouchDevice) {
+    if (isTablet) {
       document.addEventListener("touchstart", handleOutsideClick);
     }
     return () => {
-      if (isTouchDevice) {
+      if (isTablet) {
         document.removeEventListener("touchstart", handleOutsideClick);
       }
     };
-  }, [isCollapsed, isTouchDevice]);
+  }, [isCollapsed, isTablet]);
 
   const sidebarVariants = {
     expanded: { width: 180 },
@@ -117,8 +121,8 @@ const Home = () => {
         variants={sidebarVariants}
         initial="collapsed"
         transition={{ duration: transitionSpeed }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={!isTablet ? () => setIsCollapsed(false) : undefined}
+        onMouseLeave={!isTablet ? () => setIsCollapsed(true) : undefined}
         onTouchStart={handleSidebarClick}
       >
         <Card className="p-4 flex flex-col h-full">
@@ -133,7 +137,11 @@ const Home = () => {
                     ? "bg-gray-200"
                     : "hover:bg-gray-100"
                 }`}
-                onTouchStart={(e) => e.stopPropagation()}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  handleIconClick(item.path);
+                }}
+                onClick={!isTablet ? undefined : () => handleIconClick(item.path)}
               >
                 <Link
                   to={item.path}
@@ -166,8 +174,9 @@ const Home = () => {
           <Route path="monthly-expenses" element={<MonthlyExpenses />} />
           <Route path="clients" element={<Clients />} />
           <Route path="remainders" element={<Remainders />} />
-          <Route path="attendance" element={<Attendance />} /> 
+          <Route path="attendance" element={<Attendance />} />
           <Route path="attendance/:id" element={<StaffAttendanceDetails />} />
+          <Route index element={<Navigate to="calendar" />} /> {/* Default route */}
         </Routes>
       </div>
     </div>
