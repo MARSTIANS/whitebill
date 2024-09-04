@@ -9,7 +9,7 @@ import { supabase } from "../supabase";
 import { format, parseISO } from 'date-fns';
 
 const IndividualAttendanceReport = () => {
-  const { staff_id } = useParams(); // Get staff_id from route parameters
+  const { id } = useParams(); // Get staff_id from route parameters
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return format(now, 'MMMM yyyy');
@@ -27,18 +27,17 @@ const IndividualAttendanceReport = () => {
   const officeStartTime = "10:00"; // Adjust based on your office start time
 
   useEffect(() => {
-    if (staff_id) {
+    if (id) {
       fetchStaffDetails();
       fetchAttendanceDetails();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staff_id, selectedMonth]);
+  }, [id, selectedMonth]);
 
   const fetchStaffDetails = async () => {
     const { data, error } = await supabase
       .from('staff')
       .select('*')
-      .eq('id', staff_id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -50,23 +49,23 @@ const IndividualAttendanceReport = () => {
   };
 
   const fetchAttendanceDetails = async () => {
-    // Parse selectedMonth to get the first and last day of the month
     const [month, year] = selectedMonth.split(' ');
     const firstDay = new Date(`${month} 1, ${year}`);
     const lastDay = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0);
-
+    const today = new Date();  // Today's date
+  
     const { data, error } = await supabase
       .from('attendance')
       .select('date, time')
-      .eq('staff_id', staff_id)
+      .eq('staff_id', id)
       .gte('date', format(firstDay, 'yyyy-MM-dd'))
       .lte('date', format(lastDay, 'yyyy-MM-dd'));
-
+  
     if (error) {
       console.error("Error fetching attendance details:", error);
       return;
     }
-
+  
     // Organize attendance records by date
     const attendanceMap = {};
     data.forEach(record => {
@@ -76,8 +75,7 @@ const IndividualAttendanceReport = () => {
       }
       attendanceMap[dateStr].push(record.time);
     });
-
-    // Generate a list of all dates in the selected month
+  
     const daysInMonth = lastDay.getDate();
     const tempAttendanceData = [];
     let daysPresent = 0;
@@ -85,73 +83,75 @@ const IndividualAttendanceReport = () => {
     let daysLate = 0;
     let totalCheckInMinutes = 0;
     let checkInCount = 0;
-
+  
     const tempCalendarData = [];
-
+  
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(firstDay.getFullYear(), firstDay.getMonth(), day);
       const dateStr = format(currentDate, 'yyyy-MM-dd');
-      const dayOfWeek = currentDate.getDay(); // 0 (Sun) to 6 (Sat)
-
+  
+      // Skip future days
+      if (currentDate > today) {
+        tempCalendarData.push({ date: day, status: 'future' });
+        continue;
+      }
+  
       const records = attendanceMap[dateStr] || [];
       let checkIn = '-';
       let checkOut = '-';
       let status = 'Absent';
-
+  
       if (records.length > 0) {
-        // Assume first record is check-in and last record is check-out
         checkIn = formatTime(records[0]);
         checkOut = formatTime(records[records.length - 1]);
-
-        // Determine status based on check-in time
+  
+        // If the employee checked in after the office start time, they are late
         if (records[0] <= officeStartTime) {
           status = 'Present';
-          daysPresent += 1;
         } else {
           status = 'Late';
           daysLate += 1;
         }
-
-        // Calculate total check-in time for average
+  
+        daysPresent += 1;  // Increment "Present" for both Present and Late days
+  
         const checkInMinutes = convertTimeToMinutes(records[0]);
         totalCheckInMinutes += checkInMinutes;
         checkInCount += 1;
       } else {
         daysAbsent += 1;
       }
-
+  
       tempAttendanceData.push({
         date: dateStr,
         checkIn,
         checkOut,
         status,
       });
-
-      // Prepare data for calendar
+  
       tempCalendarData.push({
         date: day,
         status: status.toLowerCase(),
       });
     }
-
-    // Calculate average check-in time
+  
     const averageCheckInTime = checkInCount > 0
       ? formatMinutesToTime(Math.round(totalCheckInMinutes / checkInCount))
       : '-';
-
+  
     setAttendanceStats({
-      daysPresent,
+      daysPresent,  // Includes both "Present" and "Late" days
       daysAbsent,
       daysLate,
       averageCheckInTime,
     });
-
+  
     setAttendanceData(tempAttendanceData);
     setCalendarData(tempCalendarData);
   };
+  
 
   const formatTime = (timeStr) => {
-    // Convert "HH:MM" to "HH:MM AM/PM"
     const [hour, minute] = timeStr.split(':');
     const date = new Date();
     date.setHours(parseInt(hour), parseInt(minute));
@@ -186,13 +186,13 @@ const IndividualAttendanceReport = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container ">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold">{staffMember.name}</h1>
+          <h1 className="text-xl font-bold">{staffMember.name}</h1>
           <p className="text-muted-foreground">
-            ID: {staffMember.id} | {staffMember.position}, {staffMember.department}
+            {staffMember.position}, {staffMember.department}
           </p>
         </div>
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -211,7 +211,7 @@ const IndividualAttendanceReport = () => {
 
       {/* Attendance Statistics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card>
+        <Card className="">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Days Present</CardTitle>
             <UserCheck className="h-4 w-4 text-green-600" />
@@ -220,7 +220,7 @@ const IndividualAttendanceReport = () => {
             <div className="text-2xl font-bold">{attendanceStats.daysPresent}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Days Absent</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -229,7 +229,7 @@ const IndividualAttendanceReport = () => {
             <div className="text-2xl font-bold">{attendanceStats.daysAbsent}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Days Late</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
@@ -238,7 +238,7 @@ const IndividualAttendanceReport = () => {
             <div className="text-2xl font-bold">{attendanceStats.daysLate}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg. Check-in</CardTitle>
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
@@ -280,13 +280,13 @@ const IndividualAttendanceReport = () => {
         </Card>
 
         {/* Attendance Details Table */}
-        <Card>
-          <CardHeader>
+        <Card >
+          <CardHeader >
             <CardTitle>Attendance Details</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
+          <CardContent className="overflow-auto h-[85%]"> 
+            <Table className="relative">
+              <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Check In</TableHead>
@@ -301,7 +301,7 @@ const IndividualAttendanceReport = () => {
                     <TableCell>{record.checkIn}</TableCell>
                     <TableCell>{record.checkOut}</TableCell>
                     <TableCell>
-                      <Badge 
+                      <Badge
                         variant={
                           record.status === 'Present' ? 'default' :
                           record.status === 'Late' ? 'warning' :
@@ -317,6 +317,7 @@ const IndividualAttendanceReport = () => {
             </Table>
           </CardContent>
         </Card>
+
       </div>
     </div>
   );

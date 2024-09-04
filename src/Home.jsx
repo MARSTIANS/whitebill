@@ -9,7 +9,7 @@ import {
   ReceiptIndianRupee,
   Users,
   AlarmClock,
-  CheckCircle // New icon for Attendance
+  CheckCircle // Icon for Attendance
 } from "lucide-react";
 import Billing from "./components/Billing";
 import CalendarSection from "./components/CalendarSection";
@@ -107,7 +107,7 @@ const Home = () => {
     },
     {
       path: "attendance",
-      icon: <CheckCircle className="w-6 h-6 -ml-1 flex-shrink-0" />, // New Attendance icon
+      icon: <CheckCircle className="w-6 h-6 -ml-1 flex-shrink-0" />, // Icon for Attendance
       label: "Attendance",
     },
   ];
