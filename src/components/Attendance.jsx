@@ -1,232 +1,167 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Trash2, Users, CheckCircle, XCircle } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger, DialogFooter
-} from "@/components/ui/dialog"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Users, UserCheck, Clock, XCircle } from "lucide-react";
 import { supabase } from "../supabase";
 import NotificationDropdown from "./NotificationDropdown";
+import { format } from "date-fns";
 
 const Attendance = () => {
-  const [staff, setStaff] = useState([]);
-  const [newStaff, setNewStaff] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [attendanceData, setAttendanceData] = useState([]);
   const [totalStaff, setTotalStaff] = useState(0);
-  const [presentToday, setPresentToday] = useState(0);
-  const [absentToday, setAbsentToday] = useState(0);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [present, setPresent] = useState(0);
+  const [absent, setAbsent] = useState(0);
+  const [late, setLate] = useState(0);
   const navigate = useNavigate();
 
+  const officeStartTime = "10:00";
+  const officeEndTime = "18:30";
+
   useEffect(() => {
-    fetchStaff();
-    fetchSummary();
+    fetchAttendanceData();
   }, []);
 
-  const fetchStaff = async () => {
-    const { data, error } = await supabase.from("staff").select("*");
-    if (error) {
-      console.error("Error fetching staff:", error);
-    } else {
-      setStaff(data);
-      setTotalStaff(data.length);
-    }
-  };
-
-  const fetchSummary = async () => {
+  const fetchAttendanceData = async () => {
     const today = new Date().toISOString().split("T")[0];
 
-    // Fetching Present Today
-    const { data: presentData, error: presentError } = await supabase
+    const { data: staffData, error: staffError } = await supabase.from("staff").select("*");
+    if (staffError) {
+      console.error("Error fetching staff data:", staffError);
+      return;
+    }
+
+    const { data: attendanceData, error: attendanceError } = await supabase
       .from("attendance")
-      .select("staff_id")
-      .eq("date", today)
-      .is("time", null, { negate: true });
-
-    if (presentError) {
-      console.error("Error fetching present staff:", presentError);
-    } else {
-      setPresentToday(new Set(presentData.map((item) => item.staff_id)).size);
-      setAbsentToday(totalStaff - presentToday);
+      .select("staff_id, date, time")
+      .eq("date", today);
+    if (attendanceError) {
+      console.error("Error fetching attendance data:", attendanceError);
+      return;
     }
-  };
 
-  const handleAddStaff = async () => {
-    if (newStaff.trim() !== "") {
-      const { data, error } = await supabase
-        .from("staff")
-        .insert([{ name: newStaff.trim() }])
-        .select(); // Ensure the select query returns the inserted row
-      if (error) {
-        console.error("Error adding staff:", error);
-      } else if (data && data.length > 0) {
-        setStaff([...staff, data[0]]);
-        setNewStaff("");
-        setTotalStaff(totalStaff + 1);
-        setIsDialogOpen(false); // Close the dialog box after adding
+    const staffMap = staffData.reduce((acc, staff) => {
+      acc[staff.id] = { name: staff.name, status: "Absent", checkIn: "-", checkOut: "-" };
+      return acc;
+    }, {});
+
+    attendanceData.forEach((record) => {
+      const checkInTime = record.time;
+      const status = checkInTime <= officeStartTime ? "Present" : "Late";
+      if (!staffMap[record.staff_id].checkIn || staffMap[record.staff_id].checkIn === "-") {
+        staffMap[record.staff_id].checkIn = checkInTime;
+        staffMap[record.staff_id].status = status;
+      } else {
+        staffMap[record.staff_id].checkOut = checkInTime;
       }
-    }
+    });
+
+    const staffList = Object.values(staffMap);
+    const presentCount = staffList.filter((staff) => staff.status === "Present").length;
+    const lateCount = staffList.filter((staff) => staff.status === "Late").length;
+    const absentCount = staffList.filter((staff) => staff.status === "Absent").length;
+
+    setAttendanceData(staffList);
+    setTotalStaff(staffData.length);
+    setPresent(presentCount);
+    setLate(lateCount);
+    setAbsent(absentCount);
   };
 
-  const handleDeleteStaff = async (id) => {
-    const { error } = await supabase.from("staff").delete().eq("id", id);
-    if (error) {
-      console.error("Error deleting staff:", error);
-    } else {
-      setStaff(staff.filter((member) => member.id !== id));
-      setTotalStaff(totalStaff - 1);
-      fetchSummary();
-    }
+  const handleStaffClick = (staffId) => {
+    navigate(`/home/attendance/${staffId}`);
   };
-
-  const handleStaffClick = (id) => {
-    navigate(`/home/attendance/${id}`);
-  };
-
-  const filteredStaff = staff.filter((member) =>
-    member.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
-    <div className="px-4">
-    <div className="flex justify-between items-center ">
-     <h2 className="text-2xl font-bold mb-4">Attendance</h2>
-     <NotificationDropdown />
-   </div>
+    <div className="container ">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Staff Attendance Report</h1>
+        <NotificationDropdown />
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        {/* Total Staff */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalStaff}</div>
           </CardContent>
         </Card>
-
-        {/* Present Today */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Present Today</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">Present</CardTitle>
+            <UserCheck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{presentToday}</div>
+            <div className="text-2xl font-bold">{present}</div>
           </CardContent>
         </Card>
-
-        {/* Absent Today */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Absent Today</CardTitle>
+            <CardTitle className="text-sm font-medium">Late</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{late}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Absent</CardTitle>
             <XCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalStaff - presentToday}</div>
+            <div className="text-2xl font-bold">{absent}</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="mb-6 bg-white">
-        <CardHeader className="px-6 py-4">
-          <CardTitle className="text-lg font-semibold">Manage Staff</CardTitle>
+      <Card>
+        <CardHeader>
+          <CardTitle>Attendance Details</CardTitle>
         </CardHeader>
-        <CardContent className="px-6 py-4">
-          <div className="flex space-x-4 mb-4">
-            <Input
-              className="flex-grow"
-              placeholder="Search staff"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="px-6">Add Staff</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Staff Member</DialogTitle>
-                </DialogHeader>
-                <Input
-                  className="mt-4"
-                  placeholder="Enter staff name"
-                  value={newStaff}
-                  onChange={(e) => setNewStaff(e.target.value)}
-                />
-                <DialogFooter>
-                  <Button onClick={handleAddStaff}>Add Staff</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-              <thead className="bg-gray-100 text-left">
-                <tr>
-                  <th className="px-6 py-3 font-medium text-gray-900">Name</th>
-                  <th className="px-6 py-3 font-medium text-gray-900">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredStaff.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
-                    <td
-                      className="px-6 py-4 cursor-pointer hover:underline"
-                      onClick={() => handleStaffClick(member.id)}
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Check In</TableHead>
+                <TableHead>Check Out</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {attendanceData.map((record, index) => (
+                <TableRow
+                  key={index}
+                  onClick={() => handleStaffClick(record.id)} // Navigate to the individual attendance page
+                  className="cursor-pointer hover:bg-gray-100"
+                >
+                  <TableCell className="font-medium">{record.name}</TableCell>
+                  <TableCell>{format(new Date(), "yyyy-MM-dd")}</TableCell>
+                  <TableCell>{record.checkIn}</TableCell>
+                  <TableCell>{record.checkOut}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        record.status === "Present"
+                          ? "default"
+                          : record.status === "Late"
+                          ? "warning"
+                          : "destructive"
+                      }
                     >
-                      {member.name}
-                    </td>
-                    <td className="px-6 py-4">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="h-5 w-5 text-red-600" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete the staff member.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteStaff(member.id)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      {record.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

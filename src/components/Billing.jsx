@@ -29,8 +29,7 @@ const Billing = () => {
   const [billHistory, setBillHistory] = useState([]);
   const [clientDetails, setClientDetails] = useState("");
   const [manualTotal, setManualTotal] = useState(0);
-  const [oldBalance, setOldBalance] = useState(0);  // New state for old balance
-  const [extraShoot, setExtraShoot] = useState(0);  // New state for extra shoot
+  const [additionalBills, setAdditionalBills] = useState([]);
   const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [searchTerm, setSearchTerm] = useState("");
   const [clients, setClients] = useState([]);
@@ -55,15 +54,27 @@ const Billing = () => {
     setItems([...items, { description: "", quantity: "", numberOfDays: "", total: "" }]);
   };
 
+  const addAdditionalBill = () => {
+    setAdditionalBills([...additionalBills, { name: "", amount: "" }]);
+  };
+
   const updateItem = (index, field, value) => {
     const newItems = [...items];
     newItems[index][field] = value;
     setItems(newItems);
   };
 
+  const updateAdditionalBill = (index, field, value) => {
+    const newAdditionalBills = [...additionalBills];
+    newAdditionalBills[index][field] = value;
+    setAdditionalBills(newAdditionalBills);
+  };
+
   const handleBillGenerated = async () => {
-    const formattedDate = dateRange.from && dateRange.to 
+    const formattedDate = dateRange?.from && dateRange?.to 
       ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}` 
+      : dateRange?.from
+      ? format(new Date(dateRange.from), "dd/MM/yyyy")
       : format(new Date(), "dd/MM/yyyy");
 
     const newBill = {
@@ -72,8 +83,7 @@ const Billing = () => {
       total: parseFloat(manualTotal) || 0,
       items: [...items],
       client_details: clientDetails,
-      old_balance: parseFloat(oldBalance) || 0,  // Include old balance in the new bill object
-      extra_shoot: parseFloat(extraShoot) || 0,  // Include extra shoot in the new bill object
+      additional_bills: additionalBills,  // Include additional bills in the new bill object
     };
 
     try {
@@ -95,8 +105,7 @@ const Billing = () => {
       ]);
       setClientDetails("");
       setManualTotal(0);
-      setOldBalance(0);  // Reset old balance
-      setExtraShoot(0);  // Reset extra shoot
+      setAdditionalBills([]);  // Reset additional bills
 
       return newBill;
     } catch (error) {
@@ -289,6 +298,31 @@ const Billing = () => {
             </Button>
 
             <div className="mb-6">
+              <Label className="block text-sm font-medium text-gray-700 mb-2">Additional Bills</Label>
+              {additionalBills.map((bill, index) => (
+                <div key={index} className="flex space-x-4 mb-4">
+                  <Input
+                    type="text"
+                    placeholder="Bill Name"
+                    value={bill.name}
+                    onChange={(e) => updateAdditionalBill(index, "name", e.target.value)}
+                    className="flex-grow"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={bill.amount}
+                    onChange={(e) => updateAdditionalBill(index, "amount", e.target.value)}
+                    className="w-32"
+                  />
+                </div>
+              ))}
+              <Button onClick={addAdditionalBill} variant="outline" className="w-full">
+                Add Additional Bill
+              </Button>
+            </div>
+
+            <div className="mb-6">
               <Label htmlFor="manual-total" className="block text-sm font-medium text-gray-700 mb-2">Total</Label>
               <Input
                 id="manual-total"
@@ -299,36 +333,15 @@ const Billing = () => {
               />
             </div>
 
-            <div className="mb-6">
-              <Label htmlFor="old-balance" className="block text-sm font-medium text-gray-700 mb-2">Old Balance</Label>
-              <Input
-                id="old-balance"
-                type="number"
-                value={oldBalance}
-                onChange={(e) => setOldBalance(e.target.value)}
-                className="w-full p-3 text-right font-bold border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div className="mb-6">
-              <Label htmlFor="extra-shoot" className="block text-sm font-medium text-gray-700 mb-2">Extra Shoot</Label>
-              <Input
-                id="extra-shoot"
-                type="number"
-                value={extraShoot}
-                onChange={(e) => setExtraShoot(e.target.value)}
-                className="w-full p-3 text-right font-bold border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
             <PrintUI
               items={items}
               total={manualTotal}
-              oldBalance={oldBalance}  // Pass old balance to PrintUI
-              extraShoot={extraShoot}  // Pass extra shoot to PrintUI
+              additionalBills={additionalBills}  // Pass additional bills to PrintUI
               onBillGenerated={handleBillGenerated}
-              date={dateRange.from && dateRange.to 
+              date={dateRange?.from && dateRange?.to 
                 ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}` 
+                : dateRange?.from
+                ? format(new Date(dateRange.from), "dd/MM/yyyy")
                 : format(new Date(), "dd/MM/yyyy")}
               clientDetails={clientDetails}
             />
@@ -383,22 +396,26 @@ const Billing = () => {
                               <span className="text-gray-600">Qty: {item.quantity}, Days: {item.numberOfDays}</span>
                             </div>
                           ))}
+                          {bill.additional_bills && bill.additional_bills.length > 0 && (
+                            <div className="mt-4">
+                              <h3 className="font-bold text-gray-700">Additional Bills</h3>
+                              {bill.additional_bills.map((bill, index) => (
+                                <div key={index} className="flex justify-between text-sm mb-2">
+                                  <span className="text-gray-800">{bill.name}</span>
+                                  <span className="text-gray-600">₹{parseFloat(bill.amount).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className="text-right font-bold mt-4 text-lg text-blue-600">
                             Total: ₹{bill.total}
-                          </div>
-                          <div className="text-right font-bold mt-4 text-lg text-blue-600">
-                            Old Balance: ₹{bill.old_balance}
-                          </div>
-                          <div className="text-right font-bold mt-4 text-lg text-blue-600">
-                            Extra Shoot: ₹{bill.extra_shoot}
                           </div>
                         </div>
                         <Separator className="my-4" />
                         <PrintUI
                           items={bill.items}
                           total={bill.total}
-                          oldBalance={bill.old_balance}
-                          extraShoot={bill.extra_shoot}
+                          additionalBills={bill.additional_bills}
                           onBillGenerated={() => {}} 
                           date={bill.date} 
                           clientDetails={bill.client_details}

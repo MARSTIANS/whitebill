@@ -1,270 +1,39 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table";
-import { Trash2 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { supabase } from "../supabase";
-import NotificationDropdown from "./NotificationDropdown";
+To enhance the attendance dashboard for admin use, here are some additional features and functionalities that could be beneficial:
 
-const Attendance = () => {
-  const [staff, setStaff] = useState([]);
-  const [newStaff, setNewStaff] = useState("");
-  const navigate = useNavigate();
+### 1. **Detailed Attendance History**
+   - **Monthly/Weekly Reports**: Admins can generate detailed attendance reports for any given week or month. These reports could include summary statistics, individual employee attendance, and trends over time.
+   - **Export to PDF**: Allow admins to export attendance records and reports in PDF  format for further analysis or record-keeping.
 
-  useEffect(() => {
-    fetchStaff();
-  }, []);
+### 2. **Employee Attendance Profiles**
+   - **Employee-Specific View**: Allow admins to click on an employee's name to view their detailed attendance history, including all days present, late, or absent over a selected time range.
 
-  const fetchStaff = async () => {
-    const { data, error } = await supabase.from("staff").select("*");
-    if (error) console.error("Error fetching staff:", error);
-    else setStaff(data);
-  };
+### 3. **Attendance Summary Dashboard**
+   - **Real-Time Summary**: A real-time dashboard that shows current attendance status, such as how many employees are present, late, or absent, updated in real-time.
+  
+### 4. **Customizable Working Hours**
+   - **Flexible Hours Support**: Allow admins to set different working hours for different  employees, reflecting flexible or shift-based work schedules.
 
-  const handleAddStaff = async () => {
-    if (newStaff.trim() !== "") {
-      const { data, error } = await supabase.from("staff").insert([{ name: newStaff.trim() }]);
-      if (error) {
-        console.error("Error adding staff:", error);
-      } else {
-        setStaff([...staff, data[0]]);
-        setNewStaff("");
-      }
-    }
-  };
+### 10. **Leave and Absence Management**
+   - **Direct Leave Request Handling**: Provide admins with the ability to approve or reject leave requests directly from the dashboard, and automatically update attendance records based on leave status.
+   - **Sick Leave and Emergency Absence**: Allow for special categories of absences like sick leave or emergencies, which can be flagged differently from regular absences.
 
-  const handleDeleteStaff = async (id) => {
-    const { error } = await supabase.from("staff").delete().eq("id", id);
-    if (error) {
-      console.error("Error deleting staff:", error);
-    } else {
-      setStaff(staff.filter((member) => member.id !== id));
-    }
-  };
+### 11. **Customizable Reports and Filters**
+   - **Advanced Filtering**: Enable advanced filtering options in the attendance view, such as filtering by department, role, date range, or attendance status.
+   - **Custom Report Generation**: Allow admins to create custom reports based on specific parameters, such as attendance on public holidays, weekend shifts, etc.
 
-  const handleStaffClick = (id) => {
-    // Navigate to the staff attendance details page
-    navigate(`/home/attendance/${id}`);
-  };
+### 12. **Attendance Summary on Login**
+   - **Daily Summary Email**: Automatically send a daily summary of attendance to the admin's email at the start of each day.
+   - **Dashboard Widgets**: Place summary widgets on the admin's dashboard, showing key metrics like total employees, current day's attendance, or most common attendance issues.
 
-  return (
-    <div className="">
-      <div className="flex justify-between items-center ">
-        <h2 className="text-2xl font-bold mb-4">Attendance</h2>
-        <NotificationDropdown />
-      </div>
-      <Card className="mb-6 bg-gray-50">
-        <CardHeader>
-      
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex space-x-4">
-            <Input
-              placeholder="Add new staff member"
-              value={newStaff}
-              onChange={(e) => setNewStaff(e.target.value)}
-            />
-            <Button onClick={handleAddStaff}>
-              Add Staff
-            </Button>
-          </div>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Action</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {staff.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell
-                    className="cursor-pointer hover:underline"
-                    onClick={() => handleStaffClick(member.id)} // Updated to use `/home/attendance/:id`
-                  >
-                    {member.name}
-                  </TableCell>
-                  <TableCell>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <Trash2 className="h-5 w-5 text-red-600" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the staff member.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteStaff(member.id)}>
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
+### 13. **Attendance Regularization**
+   - **Manual Adjustments**: Allow admins to manually adjust attendance records if errors are found, with a required reason for the adjustment for transparency.
+   - **Employee Requests for Adjustments**: Provide a way for employees to request adjustments to their attendance (e.g., if they forgot to check in), subject to admin approval.
 
-export default Attendance;
-,
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table";
-import { supabase } from "../supabase";
-import { ChevronLeft } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+### 14. **Automated Attendance Reminders**
+   - **Check-In/Check-Out Reminders**: Automatically send reminders to employees to check in or out if they haven't done so within a set time after the start/end of the workday.
 
-const StaffAttendanceDetails = () => {
-  const { id } = useParams();
-  const [attendance, setAttendance] = useState([]);
-  const [staff, setStaff] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+### 15. **Historical Data Archiving**
+   - **Long-Term Data Storage**: Archive attendance data older than a certain period (e.g., one year) while keeping it accessible for auditing purposes.
+   - **Data Purging**: Allow admins to set up automated data purging rules for old attendance records while retaining necessary data for compliance.
 
-  useEffect(() => {
-    fetchStaffDetails();
-    fetchAttendanceDetails();
-  }, [id]);
-
-  const fetchStaffDetails = async () => {
-    const { data, error } = await supabase.from("staff").select("*").eq("id", id).single();
-    if (error) {
-      console.error("Error fetching staff details:", error);
-    } else {
-      setStaff(data);
-    }
-    setLoading(false);
-  };
-
-  const fetchAttendanceDetails = async () => {
-    const { data, error } = await supabase
-      .from("attendance")
-      .select("*")
-      .eq("staff_id", id)
-      .order("date", { ascending: false });
-    if (error) console.error("Error fetching attendance details:", error);
-    else setAttendance(data);
-  };
-
-  return (
-    <div>
-      <Card className="bg-gray-50">
-        <CardHeader>
-          <div className="flex justify-between">
-            {loading ? (
-              <Skeleton className="w-[200px] h-[24px] rounded" />
-            ) : (
-              <CardTitle>Attendance Details for {staff?.name}</CardTitle>
-            )}
-            <Button variant="outline" onClick={() => navigate(-1)} className="mb-4">
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div>
-              <Skeleton className="w-full h-[20px] mb-4" />
-              <Skeleton className="w-full h-[20px] mb-4" />
-              <Skeleton className="w-full h-[20px] mb-4" />
-            </div>
-          ) : (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {attendance.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{entry.status ? "Present" : "Absent"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-export default StaffAttendanceDetails;
-, SUPABASE TABLE :
-create table
-  public.attendance (
-    id uuid not null default extensions.uuid_generate_v4 (),
-    staff_id uuid null,
-    date date not null,
-    status boolean not null,
-    constraint attendance_pkey primary key (id),
-    constraint attendance_staff_id_fkey foreign key (staff_id) references staff (id)
-  ) tablespace pg_default;
-  ,
-  create table
-  public.staff (
-    id uuid not null default extensions.uuid_generate_v4 (),
-    name text not null,
-    constraint staff_pkey primary key (id)
-  ) tablespace pg_default;
-  , 
-   add the below suggestions for the attendance system, several features can enhance its functionality, usability, and scalability: 
-### 1. **Attendance Reports:**
-   - Generate reports for individual staff members or the entire staff over a specific period.
-   - Reports could include total days present, days absent, and attendance percentages.
-   - Allow exporting reports as PDF or Excel files.
-
-### 2. **Search and Filter:**
-   - Add search functionality to filter attendance records by date range, status (present/absent), or specific staff members.
-   - Implement advanced filtering options, like filtering by department or team if your organization has these structures.
-
-### 3. **Leave Management Integration:**
-   - Integrate leave management, where approved leaves are automatically marked as absent with leave status.
-   - Allow staff to request leave directly from the system, and once approved, it automatically updates their attendance records.
-
-
-### 4. **Custom Attendance Statuses:**
-   - Instead of just "Present" or "Absent," allow custom statuses such as "Late," "On Leave," "Half-Day," etc.
-   - These statuses could be color-coded in the UI for easier recognition.
-
-### 5. **Time Tracking:**
-   - Add time tracking features to monitor when employees check-in and check-out.
-   - This could also integrate with the attendance system to mark partial attendance (e.g., half-day).
-
-### 6. **Mobile Compatibility:**
-   - Ensure the system is mobile-friendly, so staff can mark their attendance via mobile devices.
-
-
-
-
+These features could greatly enhance the admin's ability to manage and monitor employee attendance, leading to better insights and more efficient workforce management.

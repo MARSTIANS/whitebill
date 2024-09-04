@@ -17,7 +17,7 @@ import MonthlyExpenses from "./components/MonthlyExpenses/MonthlyExpenses";
 import Clients from "./components/Clients";
 import Remainders from "./components/Remainders";
 import Attendance from "./components/Attendance";
-import StaffAttendanceDetails from "./components/StaffAttendanceDetails";
+import IndividualAttendanceReport from "./components/IndividualAttendanceReport"; // Import the IndividualAttendanceReport component
 
 const Home = () => {
   const location = useLocation();
@@ -175,7 +175,7 @@ const Home = () => {
           <Route path="clients" element={<Clients />} />
           <Route path="remainders" element={<Remainders />} />
           <Route path="attendance" element={<Attendance />} />
-          <Route path="attendance/:id" element={<StaffAttendanceDetails />} />
+          <Route path="attendance/:id" element={<IndividualAttendanceReport />} /> {/* Route for individual attendance */}
           <Route index element={<Navigate to="calendar" />} /> {/* Default route */}
         </Routes>
       </div>

@@ -1,9 +1,9 @@
 import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import ReactToPrint from "react-to-print";
-import Logo from "@/assets/logo1.png"; 
+import Logo from "@/assets/logo1.png";
 
-const PrintUI = ({ items, total, oldBalance, extraShoot, onBillGenerated, date, clientDetails }) => {
+const PrintUI = ({ items, total, additionalBills, onBillGenerated, date, clientDetails }) => {
   const componentRef = useRef();
 
   const handlePrint = async () => {
@@ -15,7 +15,7 @@ const PrintUI = ({ items, total, oldBalance, extraShoot, onBillGenerated, date, 
       <ReactToPrint
         trigger={() => (
           <Button className="mt-4 w-full text-white rounded-md py-2 transition-colors">
-            Print Invoice 
+            Print Invoice
           </Button>
         )}
         content={() => componentRef.current}
@@ -27,8 +27,7 @@ const PrintUI = ({ items, total, oldBalance, extraShoot, onBillGenerated, date, 
           ref={componentRef}
           items={items}
           total={total}
-          oldBalance={oldBalance} 
-          extraShoot={extraShoot} 
+          additionalBills={additionalBills} // Pass additional bills to the print component
           date={date}
           clientDetails={clientDetails}
         />
@@ -39,7 +38,7 @@ const PrintUI = ({ items, total, oldBalance, extraShoot, onBillGenerated, date, 
 
 class InvoicePrintComponent extends React.Component {
   render() {
-    const { items, total, oldBalance, extraShoot, date, clientDetails } = this.props;
+    const { items, total, additionalBills, date, clientDetails } = this.props;
 
     return (
       <div ref={this.props.forwardedRef} style={{
@@ -56,6 +55,7 @@ class InvoicePrintComponent extends React.Component {
         flexDirection: "column",
         justifyContent: "center",
       }}>
+        {/* Header Section */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "30px" }}>
           <div style={{ display: "flex", alignItems: "center", marginLeft: "-35px" }}>
             <img src={Logo} alt="Logo" style={{ width: '250px', height: '170px' }} />
@@ -76,16 +76,11 @@ class InvoicePrintComponent extends React.Component {
               {clientDetails || "Client details not provided"}
             </p>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
-            <div style={{ textAlign: "left" }}>
-              {/* Optional: Payment Information */}
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>White Branding</p>
-              <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Thrissur, Kerala</p>
-              <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>8606602888</p>
-              <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>whitebranding0@gmail.com</p>
-            </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>White Branding</p>
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Thrissur, Kerala</p>
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>8606602888</p>
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>whitebranding0@gmail.com</p>
           </div>
         </div>
 
@@ -105,52 +100,34 @@ class InvoicePrintComponent extends React.Component {
           ))}
         </div>
 
-        {/* Old Balance, Extra Shoot, and Total Section */}
+        {/* Additional Bills Section */}
+        {additionalBills.length > 0 && (
+          <div style={{  textAlign: "right",marginBottom: "30px" }}>
+            {additionalBills.map((bill, index) => (
+            <div key={index} style={{ marginBottom: "10px" }}>
+            <span style={{ textAlign: "right", fontFamily: "Inter Medium", fontSize: "13pt", color: "#333" }}>
+              {bill.name}
+            </span>
+            <span style={{  marginLeft: "20px",textAlign: "right", fontFamily: "Inter Medium", fontSize: "13pt", color: "#333" }}>
+              ₹{parseFloat(bill.amount).toFixed(2)}
+            </span>
+          </div>
+          
+            ))}
+          </div>
+        )}
+
+        {/* Total Section */}
         <div style={{ textAlign: "right", marginBottom: "40px" }}>
-        <div style={{ paddingTop: "10px" }}>
-            <span style={{
-              fontFamily: "Inter Medium",
-              fontSize: "11pt",
-              fontWeight: "bold",
-              color: "#333",
-              display: "inline-block",
-              width: "150px",
-              textAlign: "right"
-            }}>Extra Shoot</span>
-            <span style={{
-              fontFamily: "Inter",
-              fontSize: "11pt",
-              fontWeight: "bold",
-              display: "inline-block",
-              marginLeft: "20px",
-              textAlign: "right",
-              color: "#333"
-            }}>₹{parseFloat(extraShoot).toFixed(2)}</span>
-          </div>
-          <div style={{ paddingTop: "10px" }}>
-            <span style={{
-              fontFamily: "Inter Medium",
-              fontSize: "11pt",
-              fontWeight: "bold",
-              color: "#333",
-              display: "inline-block",
-              width: "150px",
-              textAlign: "right"
-            }}>Old Balance</span>
-            <span style={{
-              fontFamily: "Inter",
-              fontSize: "11pt",
-              fontWeight: "bold",
-              display: "inline-block",
-              marginLeft: "20px",
-              textAlign: "right",
-              color: "#333"
-            }}>₹{parseFloat(oldBalance).toFixed(2)}</span>
-          </div>
+        <hr 
+  style={{
+    width: "20%", 
+    borderColor: "#bcb8b1", 
+    marginLeft: "auto" // This aligns the hr to the right
+  }} 
+/>
 
-    
-
-          <div style={{ paddingTop: "10px" }}>
+          <div style={{  paddingTop: "10px" }}>
             <span style={{
               fontFamily: "Inter Medium",
               fontSize: "14pt",
