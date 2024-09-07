@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import PrintUI from "./PrintUI";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
@@ -15,9 +14,9 @@ import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import NotificationDropdown from "./NotificationDropdown";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const Billing = () => {
   const [items, setItems] = useState([
@@ -83,7 +82,7 @@ const Billing = () => {
       total: parseFloat(manualTotal) || 0,
       items: [...items],
       client_details: clientDetails,
-      additional_bills: additionalBills,  // Include additional bills in the new bill object
+      additional_bills: additionalBills,
     };
 
     try {
@@ -105,7 +104,7 @@ const Billing = () => {
       ]);
       setClientDetails("");
       setManualTotal(0);
-      setAdditionalBills([]);  // Reset additional bills
+      setAdditionalBills([]);
 
       return newBill;
     } catch (error) {
@@ -167,7 +166,6 @@ const Billing = () => {
           </CardHeader>
           <CardContent className="px-6">
             {/* Other input fields and labels */}
-
             <div className="mb-6">
               <Label htmlFor="dateRange" className="block text-sm font-medium text-gray-700 mb-2">Select Date Range</Label>
               <Popover>
@@ -336,7 +334,7 @@ const Billing = () => {
             <PrintUI
               items={items}
               total={manualTotal}
-              additionalBills={additionalBills}  // Pass additional bills to PrintUI
+              additionalBills={additionalBills}
               onBillGenerated={handleBillGenerated}
               date={dateRange?.from && dateRange?.to 
                 ? `${format(new Date(dateRange.from), "dd/MM/yyyy")} to ${format(new Date(dateRange.to), "dd/MM/yyyy")}` 
@@ -348,88 +346,93 @@ const Billing = () => {
           </CardContent>
         </Card>
 
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="mt-4 w-full">
-              View Bill History
-            </Button>
-          </SheetTrigger>
-          <SheetContent className="overflow-auto bg-white">
-            <SheetHeader>
-              <SheetTitle>Bill History</SheetTitle>
-            </SheetHeader>
-            <div className="mt-4 px-4">
+        <Card className="bg-gray-50 shadow-none rounded-lg overflow-hidden">
+          <CardHeader className="text-black">
+            <CardTitle className="text-2xl">Bill History</CardTitle>
+          </CardHeader>
+          <CardContent className="px-6">
+            <div className="mb-4">
+              <Label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">Search Bill History</Label>
               <Input
                 id="search"
                 type="text"
                 placeholder="Search by client details..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
-              <ScrollArea className="h-[510px] bg-white w-full rounded-md border p-4">
-                {filteredBillHistory.map((bill) => (
-                  <React.Fragment key={bill.id}>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <div className="mb-3 p-1 rounded-md cursor-pointer hover:bg-gray-100 transition duration-300 relative group">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium text-sm text-gray-800">{bill.date}</span>
-                          </div>
-                          <div className="text-sm text-gray-500 mt-1 truncate">{bill.client_details}</div>
-                          <Trash2
-                            className="absolute top-4 right-2 text-red-500 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                            onClick={() => handleDeleteBill(bill.id)}
-                          />
-                        </div>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                          <DialogTitle className="text-lg font-semibold text-gray-900">Bill Details</DialogTitle>
-                        </DialogHeader>
-                        <Separator className="my-4" />
-                        <div className="mt-4">
-                          <div className="text-sm font-medium text-gray-500 mb-2">Date: {bill.date}</div>
-                          {bill.items.map((item, index) => (
-                            <div key={index} className="flex justify-between text-sm mb-2">
-                              <span className="text-gray-800">{item.description}</span>
-                              <span className="text-gray-600">Qty: {item.quantity}, Days: {item.numberOfDays}</span>
-                            </div>
-                          ))}
-                          {bill.additional_bills && bill.additional_bills.length > 0 && (
-                            <div className="mt-4">
-                              <h3 className="font-bold text-gray-700">Additional Bills</h3>
-                              {bill.additional_bills.map((bill, index) => (
-                                <div key={index} className="flex justify-between text-sm mb-2">
-                                  <span className="text-gray-800">{bill.name}</span>
-                                  <span className="text-gray-600">₹{parseFloat(bill.amount).toFixed(2)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <div className="text-right font-bold mt-4 text-lg text-blue-600">
-                            Total: ₹{bill.total}
-                          </div>
-                        </div>
-                        <Separator className="my-4" />
-                        <PrintUI
-                          items={bill.items}
-                          total={bill.total}
-                          additionalBills={bill.additional_bills}
-                          onBillGenerated={() => {}} 
-                          date={bill.date} 
-                          clientDetails={bill.client_details}
-                        />
-                      </DialogContent>
-                    </Dialog>
-                    <Separator className="my-2" />
-                  </React.Fragment>
-                ))}
-              </ScrollArea>
             </div>
-        
-          </SheetContent>
-        </Sheet>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Client Details</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredBillHistory.map((bill) => (
+                  <TableRow key={bill.id}>
+                    <TableCell>{bill.date}</TableCell>
+                    <TableCell>{bill.client_details}</TableCell>
+                    <TableCell>₹{bill.total}</TableCell>
+                    <TableCell>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="mb-2" size="sm">
+                            View
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle className="text-lg font-semibold text-gray-900">Bill Details</DialogTitle>
+                          </DialogHeader>
+                          <Separator className="my-4" />
+                          <div className="mt-4">
+                            <div className="text-sm font-medium text-gray-500 mb-2">Date: {bill.date}</div>
+                            {bill.items.map((item, index) => (
+                              <div key={index} className="flex justify-between text-sm mb-2">
+                                <span className="text-gray-800">{item.description}</span>
+                                <span className="text-gray-600">Qty: {item.quantity}, Days: {item.numberOfDays}</span>
+                              </div>
+                            ))}
+                            {bill.additional_bills && bill.additional_bills.length > 0 && (
+                              <div className="mt-4">
+                                <h3 className="font-bold text-gray-700">Additional Bills</h3>
+                                {bill.additional_bills.map((bill, index) => (
+                                  <div key={index} className="flex justify-between text-sm mb-2">
+                                    <span className="text-gray-800">{bill.name}</span>
+                                    <span className="text-gray-600">₹{parseFloat(bill.amount).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="text-right font-bold mt-4 text-lg text-blue-600">
+                              Total: ₹{bill.total}
+                            </div>
+                          </div>
+                          <Separator className="my-4" />
+                          <PrintUI
+                            items={bill.items}
+                            total={bill.total}
+                            additionalBills={bill.additional_bills}
+                            onBillGenerated={() => {}} 
+                            date={bill.date} 
+                            clientDetails={bill.client_details}
+                          />
+                        </DialogContent>
+                      </Dialog>
+                      <Button variant="destructive" size="sm" onClick={() => handleDeleteBill(bill.id)}>
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -14,12 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarIcon, Trash2 as TrashIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Remainders = () => {
   const [title, setTitle] = useState("");
@@ -90,63 +85,6 @@ const Remainders = () => {
     setOpen(false);
   };
 
-  const showNotification = async (reminder) => {
-    if (Notification.permission === "granted") {
-      console.log("Notification will be triggered:", reminder.title);
-      try {
-        new Notification("Reminder", {
-          body: ` ${reminder.title}`,
-          icon: "path/to/icon.png", // Add an icon if needed
-          tag: reminder.id, // Unique identifier for the notification
-        });
-      } catch (e) {
-        console.error("Notification error:", e);
-      }
-    } else {
-      console.warn("Notifications are not permitted in this browser.");
-    }
-    await addNotification(reminder.title, reminder.id);
-  };
-
-  const addNotification = async (message, reminderId) => {
-    const newNotification = { message, reminder_id: reminderId, read: false };
-
-    const { data, error } = await supabase.from("notifications").insert([newNotification]);
-
-    if (error) {
-      console.error("Error saving notification:", error);
-      return;
-    }
-  };
-
-  const completeReminder = async (id, reminder) => {
-    const { error } = await supabase.from("reminders").update({ completed: true }).eq("id", id);
-
-    if (error) {
-      console.error("Error completing reminder:", error);
-      return;
-    }
-
-    const completedReminder = reminders.find((r) => r.id === id);
-    setCompletedReminders((prev) => [...prev, completedReminder]);
-
-    // If the reminder is recurring, create the next occurrence
-    if (reminder.is_recurring && reminder.recurrence_interval === "monthly") {
-      const nextDate = new Date(reminder.date);
-      nextDate.setMonth(nextDate.getMonth() + 1);
-
-      const newReminder = {
-        title: reminder.title,
-        date: nextDate.toISOString(),
-        completed: false,
-        is_recurring: true,
-        recurrence_interval: "monthly",
-      };
-
-      await supabase.from("reminders").insert([newReminder]);
-    }
-  };
-
   const deleteReminder = async (id) => {
     const { error } = await supabase.from("reminders").delete().eq("id", id);
 
@@ -159,21 +97,6 @@ const Remainders = () => {
     setCompletedReminders((prev) => prev.filter((reminder) => reminder.id !== id));
   };
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      reminders.forEach((reminder) => {
-        const reminderTime = new Date(reminder.date);
-        if (reminderTime <= now) {
-          showNotification(reminder);
-          completeReminder(reminder.id, reminder);
-        }
-      });
-    }, 10000); // Check every 10 seconds
-
-    return () => clearInterval(interval);
-  }, [reminders]);
-
   const filteredReminders = reminders.filter((reminder) =>
     reminder.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -184,7 +107,8 @@ const Remainders = () => {
         <h2 className="text-2xl font-bold mb-4">Reminders</h2>
         <NotificationDropdown />
       </div>
-      <Card className="bg-gray-50 p-6 shadow-none">
+
+      <Card className="bg-gray-50 h-[500px] p-6 shadow-none">
         <div className="flex justify-between mb-6">
           <Input
             type="text"
@@ -247,45 +171,48 @@ const Remainders = () => {
           )}
         </div>
 
-        <h2 className="text-lg font-bold text-gray-700 mt-8">Upcoming Reminders</h2>
-        <ul className="mt-4">
-          {filteredReminders.map((reminder) => (
-            <CardContent
-              key={reminder.id}
-              className="mb-2 p-4 shadow-sm rounded-md flex justify-between items-center bg-white"
-            >
-              <div className="text-gray-900">{reminder.title}</div>
-              <div className="text-gray-600">{format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}</div>
-              <Button variant="ghost" onClick={() => deleteReminder(reminder.id)}>
-                <TrashIcon className="h-5 w-5 text-red-600" />
-              </Button>
-            </CardContent>
-          ))}
-        </ul>
+        <Tabs defaultValue="upcoming">
+          <TabsList>
+            <TabsTrigger value="upcoming">Upcoming </TabsTrigger>
+            <TabsTrigger value="completed">Completed </TabsTrigger>
+          </TabsList>
 
-        <Accordion type="single" collapsible className="mt-8">
-          <AccordionItem value="completed-reminders">
-            <AccordionTrigger className="text-lg no-underline hover:no-underline font-bold text-gray-700">
-              Completed Reminders
-            </AccordionTrigger>
-            <AccordionContent>
-              <ul className="mt-4">
-                {completedReminders.map((reminder) => (
-                  <CardContent
-                    key={reminder.id}
-                    className="mb-2 p-4 shadow-sm rounded-md flex justify-between items-center bg-white"
-                  >
-                    <div className="text-gray-900">{reminder.title}</div>
-                    <div className="text-gray-600">{format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}</div>
-                    <Button variant="ghost" onClick={() => deleteReminder(reminder.id)}>
-                      <TrashIcon className="h-5 w-5 text-red-600" />
-                    </Button>
-                  </CardContent>
-                ))}
-              </ul>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+          {/* Upcoming Reminders Tab */}
+          <TabsContent value="upcoming">
+            <ul className="mt-4">
+              {filteredReminders.map((reminder) => (
+                <CardContent
+                  key={reminder.id}
+                  className="mb-2 p-4 shadow-sm rounded-md flex justify-between items-center bg-white"
+                >
+                  <div className="text-gray-900">{reminder.title}</div>
+                  <div className="text-gray-600">{format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}</div>
+                  <Button variant="ghost" onClick={() => deleteReminder(reminder.id)}>
+                    <TrashIcon className="h-5 w-5 text-red-600" />
+                  </Button>
+                </CardContent>
+              ))}
+            </ul>
+          </TabsContent>
+
+          {/* Completed Reminders Tab */}
+          <TabsContent value="completed">
+            <ul className="mt-4">
+              {completedReminders.map((reminder) => (
+                <CardContent
+                  key={reminder.id}
+                  className="mb-2 p-4 shadow-sm rounded-md flex justify-between items-center bg-white"
+                >
+                  <div className="text-gray-900">{reminder.title}</div>
+                  <div className="text-gray-600">{format(new Date(reminder.date), "dd/MM/yyyy HH:mm")}</div>
+                  <Button variant="ghost" onClick={() => deleteReminder(reminder.id)}>
+                    <TrashIcon className="h-5 w-5 text-red-600" />
+                  </Button>
+                </CardContent>
+              ))}
+            </ul>
+          </TabsContent>
+        </Tabs>
       </Card>
     </div>
   );
@@ -363,7 +290,7 @@ const AddReminderForm = ({
       </div>
 
       <div className="mb-6 ">
-        <Label htmlFor="recurring" className="block text-sm font-medium text-gray-700 mb-2">
+        <Label htmlFor="recurring" className="block text-sm font-medium  text-gray-700 mb-2 ">
           Recurring Reminder
         </Label>
         <div className="space-x-2 ">
@@ -371,12 +298,13 @@ const AddReminderForm = ({
             id="recurring"
             checked={isRecurring}
             onCheckedChange={(checked) => setIsRecurring(checked)}
+            className="h-4 w-4 "
           />
-          <span>Repeat Monthly</span>
+          <span className="too-0">Repeat Monthly</span>
         </div>
       </div>
 
-      <Button onClick={saveReminder} className="mt-4 w-full text-white bg-blue-600 hover:bg-blue-700 rounded-md py-2 transition-colors">
+      <Button onClick={saveReminder} className="mt-4 w-full text-white rounded-md py-2 transition-colors">
         Save Reminder
       </Button>
     </div>

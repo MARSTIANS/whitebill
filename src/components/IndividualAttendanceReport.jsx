@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarIcon, Clock, UserCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "../supabase";
 import { format, parseISO } from 'date-fns';
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 
 const IndividualAttendanceReport = () => {
   const { id } = useParams(); // Get staff_id from route parameters
@@ -23,8 +24,9 @@ const IndividualAttendanceReport = () => {
   });
   const [attendanceData, setAttendanceData] = useState([]);
   const [calendarData, setCalendarData] = useState([]);
+  const [loading, setLoading] = useState(true); // Add loading state
 
-  const officeStartTime = "10:00"; // Adjust based on your office start time
+  const officeStartTime = "10:10"; // Adjust based on your office start time
 
   useEffect(() => {
     if (id) {
@@ -148,8 +150,8 @@ const IndividualAttendanceReport = () => {
   
     setAttendanceData(tempAttendanceData);
     setCalendarData(tempCalendarData);
+    setLoading(false); // Set loading to false after fetching data
   };
-  
 
   const formatTime = (timeStr) => {
     const [hour, minute] = timeStr.split(':');
@@ -164,6 +166,7 @@ const IndividualAttendanceReport = () => {
   };
 
   const formatMinutesToTime = (totalMinutes) => {
+    if (isNaN(totalMinutes)) return "-";  // Safeguard for invalid values
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     const date = new Date();
@@ -181,12 +184,35 @@ const IndividualAttendanceReport = () => {
     return options;
   };
 
-  if (!staffMember) {
-    return <div className="container mx-auto p-4">Loading...</div>;
+  // Conditional check to display skeleton loaders if data is still loading
+  if (loading || !staffMember) {
+    return (
+      <div className="container mx-auto p-4">
+        {/* Skeleton Loader for Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-8 w-[180px]" />
+        </div>
+
+        {/* Skeleton Loader for Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+          <Skeleton className="h-[125px] w-full rounded-xl" />
+          <Skeleton className="h-[125px] w-full rounded-xl" />
+          <Skeleton className="h-[125px] w-full rounded-xl" />
+          <Skeleton className="h-[125px] w-full rounded-xl" />
+        </div>
+
+        {/* Skeleton Loader for Calendar */}
+        <div className="grid gap-8 md:grid-cols-2">
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="container ">
+    <div >
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
@@ -317,7 +343,6 @@ const IndividualAttendanceReport = () => {
             </Table>
           </CardContent>
         </Card>
-
       </div>
     </div>
   );
