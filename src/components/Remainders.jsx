@@ -85,6 +85,63 @@ const Remainders = () => {
     setOpen(false);
   };
 
+  const showNotification = async (reminder) => {
+    if (Notification.permission === "granted") {
+      console.log("Notification will be triggered:", reminder.title);
+      try {
+        new Notification("Reminder", {
+          body: ` ${reminder.title}`,
+          icon: "path/to/icon.png", // Add an icon if needed
+          tag: reminder.id, // Unique identifier for the notification
+        });
+      } catch (e) {
+        console.error("Notification error:", e);
+      }
+    } else {
+      console.warn("Notifications are not permitted in this browser.");
+    }
+    await addNotification(reminder.title, reminder.id);
+  };
+
+  const addNotification = async (message, reminderId) => {
+    const newNotification = { message, reminder_id: reminderId, read: false };
+
+    const { data, error } = await supabase.from("notifications").insert([newNotification]);
+
+    if (error) {
+      console.error("Error saving notification:", error);
+      return;
+    }
+  };
+
+  const completeReminder = async (id, reminder) => {
+    const { error } = await supabase.from("reminders").update({ completed: true }).eq("id", id);
+
+    if (error) {
+      console.error("Error completing reminder:", error);
+      return;
+    }
+
+    const completedReminder = reminders.find((r) => r.id === id);
+    setCompletedReminders((prev) => [...prev, completedReminder]);
+
+    // If the reminder is recurring, create the next occurrence
+    if (reminder.is_recurring && reminder.recurrence_interval === "monthly") {
+      const nextDate = new Date(reminder.date);
+      nextDate.setMonth(nextDate.getMonth() + 1);
+
+      const newReminder = {
+        title: reminder.title,
+        date: nextDate.toISOString(),
+        completed: false,
+        is_recurring: true,
+        recurrence_interval: "monthly",
+      };
+
+      await supabase.from("reminders").insert([newReminder]);
+    }
+  };
+
   const deleteReminder = async (id) => {
     const { error } = await supabase.from("reminders").delete().eq("id", id);
 
@@ -97,6 +154,21 @@ const Remainders = () => {
     setCompletedReminders((prev) => prev.filter((reminder) => reminder.id !== id));
   };
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      reminders.forEach((reminder) => {
+        const reminderTime = new Date(reminder.date);
+        if (reminderTime <= now) {
+          showNotification(reminder);
+          completeReminder(reminder.id, reminder);
+        }
+      });
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [reminders]);
+
   const filteredReminders = reminders.filter((reminder) =>
     reminder.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -107,8 +179,7 @@ const Remainders = () => {
         <h2 className="text-2xl font-bold mb-4">Reminders</h2>
         <NotificationDropdown />
       </div>
-
-      <Card className="bg-gray-50 h-[500px] p-6 shadow-none">
+      <Card className="bg-gray-50 p-6 shadow-none">
         <div className="flex justify-between mb-6">
           <Input
             type="text"
@@ -171,13 +242,12 @@ const Remainders = () => {
           )}
         </div>
 
-        <Tabs defaultValue="upcoming">
+        <Tabs defaultValue="upcoming" className="w-full">
           <TabsList>
-            <TabsTrigger value="upcoming">Upcoming </TabsTrigger>
-            <TabsTrigger value="completed">Completed </TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming Reminders</TabsTrigger>
+            <TabsTrigger value="completed">Completed Reminders</TabsTrigger>
           </TabsList>
 
-          {/* Upcoming Reminders Tab */}
           <TabsContent value="upcoming">
             <ul className="mt-4">
               {filteredReminders.map((reminder) => (
@@ -195,7 +265,6 @@ const Remainders = () => {
             </ul>
           </TabsContent>
 
-          {/* Completed Reminders Tab */}
           <TabsContent value="completed">
             <ul className="mt-4">
               {completedReminders.map((reminder) => (
@@ -290,7 +359,7 @@ const AddReminderForm = ({
       </div>
 
       <div className="mb-6 ">
-        <Label htmlFor="recurring" className="block text-sm font-medium  text-gray-700 mb-2 ">
+        <Label htmlFor="recurring" className="block text-sm font-medium text-gray-700 mb-2">
           Recurring Reminder
         </Label>
         <div className="space-x-2 ">
@@ -298,13 +367,12 @@ const AddReminderForm = ({
             id="recurring"
             checked={isRecurring}
             onCheckedChange={(checked) => setIsRecurring(checked)}
-            className="h-4 w-4 "
           />
-          <span className="too-0">Repeat Monthly</span>
+          <span>Repeat Monthly</span>
         </div>
       </div>
 
-      <Button onClick={saveReminder} className="mt-4 w-full text-white rounded-md py-2 transition-colors">
+      <Button onClick={saveReminder} className="mt-4 w-full text-white bg-blue-600 hover:bg-blue-700 rounded-md py-2 transition-colors">
         Save Reminder
       </Button>
     </div>
