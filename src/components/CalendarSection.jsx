@@ -24,7 +24,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "../supabase";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
   Command,
@@ -40,8 +40,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { useReactToPrint } from "react-to-print";
 import NotificationDropdown from "./NotificationDropdown";
+import jsPDF from "jspdf";
 
 const CATEGORIES = [
   { value: "shoot", label: "Shoot" },
@@ -88,7 +88,6 @@ const CalendarSection = () => {
   const [errors, setErrors] = useState({ title: "", category: "" });
   const [clients, setClients] = useState([]);
   const [openClientCombobox, setOpenClientCombobox] = useState(false);
-  const calendarComponentRef = useRef(null);
   const calendarRef = useRef(null);
 
   const fetchClients = async () => {
@@ -111,13 +110,6 @@ const CalendarSection = () => {
   useEffect(() => {
     fetchClients();
   }, []);
-
-  useEffect(() => {
-    if (calendarRef.current) {
-      const calendarApi = calendarRef.current.getApi();
-      calendarApi.updateSize();
-    }
-  }, [events, filterCategory, filterClientName]);
 
   const fetchEvents = useCallback(async () => {
     let query = supabase.from("events").select("*");
@@ -476,94 +468,102 @@ const CalendarSection = () => {
     }
   };
 
-  const handleSearch = useCallback(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+  const generateEnhancedCalendarPDF = () => {
+    const doc = new jsPDF('landscape');
 
-  const handlePrint = useReactToPrint({
-    content: () => calendarComponentRef.current,
-    copyStyles: true,
-    pageStyle: `
-      @media print {
-        body { 
-          -webkit-print-color-adjust: exact; 
-          print-color-adjust: exact;
-        }
-        .fc-toolbar, .fc-header-toolbar { display: none !important; }
-        .fc-view-harness { height: auto !important; }
-        .fc { 
-          max-width: 1160px !important; 
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        .fc-view { 
-          width: 1160px !important; 
-          table-layout: fixed !important;
-        }
-        .fc-scroller { 
-          overflow: visible !important; 
-          height: auto !important; 
-        }
-        .fc-day-grid-container { height: auto !important; }
-        .print-header { 
-          display: block !important; 
-          text-align: center; 
-          font-size: 24px; 
-          font-weight: bold; 
-          margin-bottom: 20px; 
-        }
-        .fc th, .fc td { 
-          border: 1px solid #000 !important;
-        }
-        .fc-day-grid .fc-row {
-          min-height: 5em !important;
-        }
-        .fc-col-header-cell {
-          width: 14.28% !important;
-        }
-        @page { 
-          size: landscape;
-          margin: 0.5cm;
-        }
-      }
-    `,
-    onBeforeGetContent: () => {
-      return new Promise((resolve) => {
-        setPrintClientName(filterClientName);
-        if (calendarRef.current) {
-          const calendarApi = calendarRef.current.getApi();
-          calendarApi.changeView("dayGridMonth");
-          calendarApi.updateSize();
-          calendarApi.render();
-        }
-        setTimeout(resolve, 250);
+    // Font and styling variables
+    const baseFont = 'helvetica';
+    const titleFontSize = 22;
+    const dayLabelFontSize = 12;
+    const dateFontSize = 10;
+    const eventFontSize = 12;
+    const gridLineColor = '#353535';
+    const dayHeaderBg = '#353535';
+    const dayHeaderTextColor = '#f8f9fa';
+    const textColor = '#333333';
+    const bulletChar = '• ';
+
+    const startX = 14;
+    const startY = 30;
+    const cellWidth = 40;
+    const cellHeight = 35;
+
+    const currentDate = new Date();
+
+    doc.setFont(baseFont, 'bold');
+    doc.setFontSize(titleFontSize);
+    doc.setTextColor(textColor);
+    doc.text(`Monthly Chart ${filterClientName ? `- ${filterClientName}` : ''}`, 148, 15, { align: 'center' });
+
+    // Days of the Week Header
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    daysOfWeek.forEach((day, index) => {
+      doc.setFillColor(dayHeaderBg);
+      doc.setTextColor(dayHeaderTextColor);
+      doc.rect(startX + index * cellWidth, startY - 10, cellWidth, 10, 'F');
+      doc.setFontSize(dayLabelFontSize);
+      doc.text(day, startX + index * cellWidth + 12, startY - 2, { align: 'center' });
+    });
+
+    // Calendar Grid
+    const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+    let currentWeek = 0;
+
+    for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const x = startX + dayOfWeek * cellWidth;
+      const y = startY + currentWeek * cellHeight;
+
+      // Draw calendar cell
+      doc.setFillColor('#FFFFFF');
+      doc.rect(x, y, cellWidth, cellHeight);
+
+      doc.setDrawColor(gridLineColor);
+      doc.setLineWidth(0.5);
+      doc.rect(x, y, cellWidth, cellHeight);
+
+      // Add date number
+      doc.setFontSize(dateFontSize);
+      doc.setTextColor(textColor);
+      doc.text(d.getDate().toString(), x + cellWidth - 8, y + 10);
+
+      // Add events for the day
+      const dayEvents = events.filter(event => {
+        const eventDate = new Date(event.start);
+        return eventDate.getDate() === d.getDate() &&
+          eventDate.getMonth() === d.getMonth() &&
+          eventDate.getFullYear() === d.getFullYear();
       });
-    },
-    onAfterPrint: () => {
-      setIsPrinting(false);
-      if (calendarRef.current) {
-        const calendarApi = calendarRef.current.getApi();
-        calendarApi.updateSize();
-      }
-    },
-  });
+
+      doc.setFontSize(eventFontSize);
+      dayEvents.forEach((event, index) => {
+        if (index < 2) {
+          doc.text(`${bulletChar}${event.title}`, x + 4, y + 14 + index * 6, { maxWidth: cellWidth - 8 });
+        }
+      });
+
+      if (dayOfWeek === 6) currentWeek++;
+    }
+
+    // Save the PDF
+    doc.save(`monthly_chart_${filterClientName || 'client'}.pdf`);
+  };
 
   const triggerPrint = useCallback(() => {
-    setIsPrinting(true);
-    setTimeout(() => {
-      handlePrint();
-    }, 100);
-  }, [handlePrint]);
+    generateEnhancedCalendarPDF();
+  }, [filterClientName, events]);
 
   useEffect(() => {
     if (isPrinting) {
-      handlePrint();
+      triggerPrint();
     }
-  }, [isPrinting, handlePrint]);
+  }, [isPrinting, triggerPrint]);
 
   return (
     <div>
-       <div className="flex justify-between items-center ">
+      <div className="flex justify-between items-center ">
         <h2 className="text-2xl font-bold mb-4">Event Calendar</h2>
         <NotificationDropdown />
       </div>
@@ -573,7 +573,7 @@ const CalendarSection = () => {
             placeholder="Search events..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyUp={handleSearch}
+            onKeyUp={fetchEvents}
           />
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger>
@@ -639,49 +639,46 @@ const CalendarSection = () => {
           </Popover>
           <Button onClick={triggerPrint}>Print Calendar</Button>
         </div>
-        <div className="bg-white shadow-none" ref={calendarComponentRef}>
-          <div className="print-header" style={{ display: "none" }}>
-            Monthly Chart {printClientName ? `- ${printClientName}` : ""}
-          </div>
+        <div className="bg-white shadow-none">
           <FullCalendar
-          ref={calendarRef}
-          plugins={[
-            dayGridPlugin,
-            timeGridPlugin,
-            listPlugin,
-            interactionPlugin,
-          ]}
-          initialView="dayGridMonth"
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay,listYear",
-          }}
-          events={events}
-          selectable={true}
-          select={handleDateSelect}
-          eventClick={handleEventClick}
-          editable={true}
-          eventDrop={handleEventDrop}
-          eventResize={handleEventResize}
-          eventChange={handleEventChange}
-          eventResizableFromStart={true}
-          aspectRatio={1.5} // Increased from 1.35 to ensure all columns fit
-          contentHeight="auto" // Added to control the calendar's height
-          timeZone="Asia/Kolkata"
-          handleWindowResize={true}
-          stickyHeaderDates={true}
-          dayMaxEvents={2}
-          moreLinkClick="popover"
-          eventTimeFormat={{
-            hour: "numeric",
-            minute: "2-digit",
-            meridiem: "short",
-          }}
-          dayCellClassNames="border-2 border-gray-300"
-          eventClassNames="mb-1 font-semibold"
-          dayHeaderClassNames="bg-gray-200 text-gray-700 uppercase tracking-wider"
-        />
+            ref={(element) => (calendarRef.current = element)} // Correctly setting the ref
+            plugins={[
+              dayGridPlugin,
+              timeGridPlugin,
+              listPlugin,
+              interactionPlugin,
+            ]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek,timeGridDay,listYear",
+            }}
+            events={events}
+            selectable={true}
+            select={handleDateSelect}
+            eventClick={handleEventClick}
+            editable={true}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            eventChange={handleEventChange}
+            eventResizableFromStart={true}
+            aspectRatio={1.5}
+            contentHeight="auto"
+            timeZone="Asia/Kolkata"
+            handleWindowResize={true}
+            stickyHeaderDates={true}
+            dayMaxEvents={2}
+            moreLinkClick="popover"
+            eventTimeFormat={{
+              hour: "numeric",
+              minute: "2-digit",
+              meridiem: "short",
+            }}
+            dayCellClassNames="border-2 border-gray-300"
+            eventClassNames="mb-1 font-semibold"
+            dayHeaderClassNames="bg-gray-200 text-gray-700 uppercase tracking-wider"
+          />
         </div>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent>

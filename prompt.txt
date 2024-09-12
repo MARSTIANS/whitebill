@@ -1,266 +1,826 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Users, UserCheck, Clock, XCircle } from "lucide-react";
-import { supabase } from "../supabase";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import listPlugin from "@fullcalendar/list";
+import interactionPlugin from "@fullcalendar/interaction";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "../supabase";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
 import NotificationDropdown from "./NotificationDropdown";
-import { format } from "date-fns";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import DownloadPDFButton from "./DownloadPDFButton"; // Component for generating the PDF
 
-const Attendance = () => {
-  const [attendanceData, setAttendanceData] = useState([]);
-  const [totalStaff, setTotalStaff] = useState(0);
-  const [present, setPresent] = useState(0);
-  const [absent, setAbsent] = useState(0);
-  const [late, setLate] = useState(0);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return format(now, 'MMMM yyyy');
+const CATEGORIES = [
+  { value: "shoot", label: "Shoot" },
+  { value: "meeting", label: "Meeting" },
+  { value: "post", label: "Post" },
+];
+
+const FILTER_CATEGORIES = [{ value: "all", label: "All" }, ...CATEGORIES];
+
+const getCategoryColor = (category, isDone) => {
+  if (isDone) return "#4caf50";
+  switch (category) {
+    case "shoot":
+      return "#f06543";
+    case "meeting":
+      return "#0582ca";
+    case "post":
+      return "#f48c06";
+    default:
+      return "#6c757d";
+  }
+};
+
+const CalendarSection = () => {
+  const [events, setEvents] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    title: "",
+    description: "",
+    start: "",
+    end: "",
+    location: "",
+    category: "",
+    allDay: false,
+    isDone: false,
+    clientName: "",
   });
-  const navigate = useNavigate();
+  const [isEditing, setIsEditing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterClientName, setFilterClientName] = useState("");
+  const [printClientName, setPrintClientName] = useState("");
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [errors, setErrors] = useState({ title: "", category: "" });
+  const [clients, setClients] = useState([]);
+  const [openClientCombobox, setOpenClientCombobox] = useState(false);
+  const calendarComponentRef = useRef(null);
+  const calendarRef = useRef(null);
 
-  const officeStartTime = "10:00";
-  const lateThreshold = "10:10"; // Threshold time for marking employees late
+  const fetchClients = async () => {
+    const { data, error } = await supabase
+      .from("clients")
+      .select("client_name")
+      .order("client_name");
+    if (error) {
+      console.error("Error fetching clients:", error);
+    } else {
+      setClients(
+        data.map((client) => ({
+          value: client.client_name,
+          label: client.client_name,
+        }))
+      );
+    }
+  };
 
   useEffect(() => {
-    fetchAttendanceDataForMonth();
-  }, [selectedMonth]);
+    fetchClients();
+  }, []);
 
-  const fetchAttendanceDataForMonth = async () => {
-    const [month, year] = selectedMonth.split(" ");
-    const firstDay = new Date(`${month} 1, ${year}`);
-    const lastDay = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0);
+  useEffect(() => {
+    if (calendarRef.current) {
+      const calendarApi = calendarRef.current.getApi();
+      calendarApi.updateSize();
+    }
+  }, [events, filterCategory, filterClientName]);
 
-    // Fetch staff data
-    const { data: staffData, error: staffError } = await supabase.from("staff").select("*");
-    if (staffError) {
-      console.error("Error fetching staff data:", staffError);
-      return;
+  const fetchEvents = useCallback(async () => {
+    let query = supabase.from("events").select("*");
+
+    if (searchTerm) {
+      query = query.or(
+        `title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%`
+      );
     }
 
-    // Fetch current month's attendance data
-    const { data: attendanceData, error: attendanceError } = await supabase
-      .from("attendance")
-      .select("staff_id, date, time")
-      .gte("date", format(firstDay, "yyyy-MM-dd"))
-      .lte("date", format(lastDay, "yyyy-MM-dd"));
-    if (attendanceError) {
-      console.error("Error fetching attendance data:", attendanceError);
-      return;
+    if (filterCategory && filterCategory !== "all") {
+      query = query.eq("category", filterCategory);
     }
 
-    // Create a staff map for attendance
-    const staffMap = staffData.reduce((acc, staff) => {
-      acc[staff.id] = {
-        id: staff.id,
-        name: staff.name,
-        status: "Absent",
-        checkIn: "-",
-        checkOut: "-",
-      };
-      return acc;
-    }, {});
+    if (filterClientName) {
+      query = query.eq("client_name", filterClientName);
+    }
 
-    // Process attendance data for the selected month
-    attendanceData.forEach((record) => {
-      const checkInTime = record.time;
-      const status = checkInTime <= lateThreshold ? "Present" : "Late";
+    const { data, error } = await query;
 
-      // Set check-in and check-out times
-      if (!staffMap[record.staff_id].checkIn || staffMap[record.staff_id].checkIn === "-") {
-        staffMap[record.staff_id].checkIn = checkInTime;
-        staffMap[record.staff_id].status = status;
-      } else {
-        staffMap[record.staff_id].checkOut = checkInTime;
-      }
+    if (error) {
+      console.error("Error fetching events:", error);
+    } else {
+      const formattedEvents = data.map((event) => ({
+        id: event.id,
+        title: event.title,
+        start: event.start_time,
+        end: event.end_time,
+        allDay: event.all_day,
+        backgroundColor: getCategoryColor(event.category, event.is_done),
+        borderColor: getCategoryColor(event.category, event.is_done),
+        extendedProps: {
+          description: event.description,
+          location: event.location,
+          category: event.category,
+          isDone: event.is_done,
+          clientName: event.client_name,
+        },
+      }));
+      setEvents(formattedEvents);
+    }
+  }, [searchTerm, filterCategory, filterClientName]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const handleDateSelect = (selectInfo) => {
+    setIsModalOpen(true);
+    setNewEvent({
+      title: "",
+      description: "",
+      start: selectInfo.startStr,
+      end: selectInfo.endStr || selectInfo.startStr,
+      location: "",
+      category: "",
+      allDay: selectInfo.allDay,
+      isDone: false,
+      clientName: "",
     });
-
-    const staffList = Object.values(staffMap);
-    const presentCount = staffList.filter((staff) => staff.status === "Present").length;
-    const lateCount = staffList.filter((staff) => staff.status === "Late").length;
-    const absentCount = staffList.filter((staff) => staff.status === "Absent").length;
-
-    // Update state
-    setAttendanceData(staffList);
-    setTotalStaff(staffData.length);
-    setPresent(presentCount);
-    setLate(lateCount);
-    setAbsent(absentCount);
+    setIsEditing(false);
   };
 
-  // Handle navigating to individual attendance page
-  const handleStaffClick = (staffId) => {
-    navigate(`/home/attendance/${staffId}`);
+  const handleEventClick = (clickInfo) => {
+    setIsModalOpen(true);
+    setNewEvent({
+      id: clickInfo.event.id,
+      title: clickInfo.event.title,
+      description: clickInfo.event.extendedProps.description,
+      start: clickInfo.event.startStr,
+      end: clickInfo.event.endStr || clickInfo.event.startStr,
+      location: clickInfo.event.extendedProps.location,
+      category: clickInfo.event.extendedProps.category,
+      allDay: clickInfo.event.allDay,
+      isDone: clickInfo.event.extendedProps.isDone,
+      clientName: clickInfo.event.extendedProps.clientName,
+    });
+    setIsEditing(true);
   };
 
-  const filteredAttendanceData = attendanceData.filter((staff) =>
-    staff.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const validateEvent = () => {
+    let isValid = true;
+    const newErrors = { title: "", category: "" };
 
-  const generateMonthOptions = () => {
-    const options = [];
-    const currentDate = new Date();
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      options.push(format(date, "MMMM yyyy"));
+    if (!newEvent.title) {
+      newErrors.title = "Event title is required.";
+      isValid = false;
     }
-    return options;
+
+    if (!newEvent.category) {
+      newErrors.category = "Event category is required.";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
   };
+
+  const handleEventAdd = async () => {
+    if (validateEvent()) {
+      const eventToAdd = {
+        title: newEvent.title,
+        description: newEvent.description,
+        start_time: newEvent.allDay
+          ? `${newEvent.start}T00:00:00Z`
+          : newEvent.start,
+        end_time: newEvent.allDay ? `${newEvent.end}T23:59:59Z` : newEvent.end,
+        location: newEvent.location,
+        category: newEvent.category,
+        all_day: newEvent.allDay,
+        is_done: newEvent.isDone,
+        client_name: newEvent.clientName,
+      };
+
+      if (isEditing) {
+        const { error } = await supabase
+          .from("events")
+          .update(eventToAdd)
+          .eq("id", newEvent.id);
+        if (error) console.error("Error updating event:", error);
+        else {
+          setEvents((currentEvents) =>
+            currentEvents.map((event) =>
+              event.id === newEvent.id
+                ? {
+                    ...event,
+                    ...eventToAdd,
+                    allDay: newEvent.allDay,
+                    backgroundColor: getCategoryColor(
+                      newEvent.category,
+                      newEvent.isDone
+                    ),
+                    borderColor: getCategoryColor(
+                      newEvent.category,
+                      newEvent.isDone
+                    ),
+                    extendedProps: {
+                      ...event.extendedProps,
+                      ...eventToAdd,
+                      isDone: newEvent.isDone,
+                      clientName: newEvent.clientName,
+                    },
+                  }
+                : event
+            )
+          );
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("events")
+          .insert([eventToAdd])
+          .select();
+        if (error) console.error("Error adding event:", error);
+        else {
+          const newFormattedEvent = {
+            id: data[0].id,
+            title: data[0].title,
+            start: data[0].start_time,
+            end: data[0].end_time,
+            allDay: data[0].all_day,
+            backgroundColor: getCategoryColor(
+              data[0].category,
+              data[0].is_done
+            ),
+            borderColor: getCategoryColor(data[0].category, data[0].is_done),
+            extendedProps: {
+              description: data[0].description,
+              location: data[0].location,
+              category: data[0].category,
+              isDone: data[0].is_done,
+              clientName: data[0].client_name,
+            },
+          };
+          setEvents((currentEvents) => [...currentEvents, newFormattedEvent]);
+        }
+      }
+
+      setIsModalOpen(false);
+      setNewEvent({
+        title: "",
+        description: "",
+        start: "",
+        end: "",
+        location: "",
+        category: "",
+        allDay: false,
+        isDone: false,
+        clientName: "",
+      });
+    }
+  };
+
+  const handleEventDelete = async () => {
+    if (isEditing && newEvent.id) {
+      const { error } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", newEvent.id);
+      if (error) console.error("Error deleting event:", error);
+      else {
+        setIsModalOpen(false);
+        setEvents((currentEvents) =>
+          currentEvents.filter((event) => event.id !== newEvent.id)
+        );
+      }
+    }
+  };
+
+  const handleEventDrop = async (dropInfo) => {
+    const updatedEvent = {
+      id: dropInfo.event.id,
+      start_time: dropInfo.event.allDay
+        ? `${dropInfo.event.startStr}T00:00:00Z`
+        : dropInfo.event.startStr,
+      end_time: dropInfo.event.allDay
+        ? `${dropInfo.event.endStr || dropInfo.event.startStr}T23:59:59Z`
+        : dropInfo.event.endStr || dropInfo.event.startStr,
+      all_day: dropInfo.event.allDay,
+    };
+
+    const { error } = await supabase
+      .from("events")
+      .update(updatedEvent)
+      .eq("id", updatedEvent.id);
+
+    if (error) {
+      console.error("Error updating event:", error);
+    } else {
+      setEvents((currentEvents) =>
+        currentEvents.map((event) =>
+          event.id === updatedEvent.id
+            ? {
+                ...event,
+                start: updatedEvent.start_time,
+                end: updatedEvent.end_time,
+                allDay: updatedEvent.all_day,
+                backgroundColor: getCategoryColor(
+                  event.extendedProps.category,
+                  event.extendedProps.isDone
+                ),
+                borderColor: getCategoryColor(
+                  event.extendedProps.category,
+                  event.extendedProps.isDone
+                ),
+                extendedProps: {
+                  ...event.extendedProps,
+                  start_time: updatedEvent.start_time,
+                  end_time: updatedEvent.end_time,
+                },
+              }
+            : event
+        )
+      );
+    }
+  };
+
+  const handleEventResize = async (resizeInfo) => {
+    const updatedEvent = {
+      id: resizeInfo.event.id,
+      start_time: resizeInfo.event.allDay
+        ? `${resizeInfo.event.startStr}T00:00:00Z`
+        : resizeInfo.event.startStr,
+      end_time: resizeInfo.event.allDay
+        ? `${resizeInfo.event.endStr || resizeInfo.event.startStr}T23:59:59Z`
+        : resizeInfo.event.endStr || resizeInfo.event.startStr,
+      all_day: resizeInfo.event.allDay,
+    };
+
+    const { error } = await supabase
+      .from("events")
+      .update(updatedEvent)
+      .eq("id", updatedEvent.id);
+
+    if (error) {
+      console.error("Error updating event:", error);
+    } else {
+      setEvents((currentEvents) =>
+        currentEvents.map((event) =>
+          event.id === updatedEvent.id
+            ? {
+                ...event,
+                start: updatedEvent.start_time,
+                end: updatedEvent.end_time,
+                allDay: updatedEvent.all_day,
+                backgroundColor: getCategoryColor(
+                  event.extendedProps.category,
+                  event.extendedProps.isDone
+                ),
+                borderColor: getCategoryColor(
+                  event.extendedProps.category,
+                  event.extendedProps.isDone
+                ),
+                extendedProps: {
+                  ...event.extendedProps,
+                  start_time: updatedEvent.start_time,
+                  end_time: updatedEvent.end_time,
+                },
+              }
+            : event
+        )
+      );
+    }
+  };
+
+  const handleEventChange = async (changeInfo) => {
+    const updatedEvent = {
+      id: changeInfo.event.id,
+      start_time: changeInfo.event.allDay
+        ? `${changeInfo.event.startStr}T00:00:00Z`
+        : changeInfo.event.startStr,
+      end_time: changeInfo.event.allDay
+        ? `${changeInfo.event.endStr || changeInfo.event.startStr}T23:59:59Z`
+        : changeInfo.event.endStr || changeInfo.event.startStr,
+      all_day: changeInfo.event.allDay,
+      category: changeInfo.event.extendedProps.category,
+      is_done: changeInfo.event.extendedProps.isDone,
+      client_name: changeInfo.event.extendedProps.clientName,
+    };
+
+    const { error } = await supabase
+      .from("events")
+      .update(updatedEvent)
+      .eq("id", updatedEvent.id);
+
+    if (error) {
+      console.error("Error updating event:", error);
+    } else {
+      setEvents((currentEvents) =>
+        currentEvents.map((event) =>
+          event.id === updatedEvent.id
+            ? {
+                ...event,
+                start: updatedEvent.start_time,
+                end: updatedEvent.end_time,
+                allDay: updatedEvent.all_day,
+                backgroundColor: getCategoryColor(
+                  updatedEvent.category,
+                  updatedEvent.is_done
+                ),
+                borderColor: getCategoryColor(
+                  updatedEvent.category,
+                  updatedEvent.is_done
+                ),
+                extendedProps: {
+                  ...event.extendedProps,
+                  start_time: updatedEvent.start_time,
+                  end_time: updatedEvent.end_time,
+                  category: updatedEvent.category,
+                  isDone: updatedEvent.is_done,
+                  clientName: updatedEvent.client_name,
+                },
+              }
+            : event
+        )
+      );
+    }
+  };
+
+  const handleSearch = useCallback(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const handlePrint = useReactToPrint({
+    content: () => calendarComponentRef.current,
+    copyStyles: true,
+    pageStyle: `
+      @media print {
+        body { 
+          -webkit-print-color-adjust: exact; 
+          print-color-adjust: exact;
+        }
+        .fc-toolbar, .fc-header-toolbar { display: none !important; }
+        .fc-view-harness { height: auto !important; }
+        .fc { 
+          max-width: 1160px !important; 
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .fc-view { 
+          width: 1160px !important; 
+          table-layout: fixed !important;
+        }
+        .fc-scroller { 
+          overflow: visible !important; 
+          height: auto !important; 
+        }
+        .fc-day-grid-container { height: auto !important; }
+        .print-header { 
+          display: block !important; 
+          text-align: center; 
+          font-size: 24px; 
+          font-weight: bold; 
+          margin-bottom: 20px; 
+        }
+        .fc th, .fc td { 
+          border: 1px solid #000 !important;
+        }
+        .fc-day-grid .fc-row {
+          min-height: 5em !important;
+        }
+        .fc-col-header-cell {
+          width: 14.28% !important;
+        }
+        @page { 
+          size: landscape;
+          margin: 0.5cm;
+        }
+      }
+    `,
+    onBeforeGetContent: () => {
+      return new Promise((resolve) => {
+        setPrintClientName(filterClientName);
+        if (calendarRef.current) {
+          const calendarApi = calendarRef.current.getApi();
+          calendarApi.changeView("dayGridMonth");
+          calendarApi.updateSize();
+          calendarApi.render();
+        }
+        setTimeout(resolve, 250);
+      });
+    },
+    onAfterPrint: () => {
+      setIsPrinting(false);
+      if (calendarRef.current) {
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.updateSize();
+      }
+    },
+  });
+
+  const triggerPrint = useCallback(() => {
+    setIsPrinting(true);
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  }, [handlePrint]);
+
+  useEffect(() => {
+    if (isPrinting) {
+      handlePrint();
+    }
+  }, [isPrinting, handlePrint]);
 
   return (
-    <div className="container ">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Staff Attendance Report</h1>
-        <div className="flex items-center space-x-4">
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select month" />
+    <div>
+       <div className="flex justify-between items-center ">
+        <h2 className="text-2xl font-bold mb-4">Event Calendar</h2>
+        <NotificationDropdown />
+      </div>
+      <Card className="bg-gray-50 p-4">
+        <div className="mb-4 flex space-x-2">
+          <Input
+            placeholder="Search events..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyUp={handleSearch}
+          />
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
-              {generateMonthOptions().map((month) => (
-                <SelectItem key={month} value={month}>
-                  {month}
+              {FILTER_CATEGORIES.map((category) => (
+                <SelectItem key={category.value} value={category.value}>
+                  {category.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Input
-            placeholder="Search staff"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-[200px]"
-          />
-          <DownloadPDFButton data={filteredAttendanceData} />
-          <NotificationDropdown />
+          <Popover
+            open={openClientCombobox}
+            onOpenChange={setOpenClientCombobox}
+          >
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openClientCombobox}
+                className="w-full justify-between"
+              >
+                {filterClientName || "Filter by Client"}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[390px] p-0">
+              <Command>
+                <CommandInput placeholder="Search clients..." />
+                <CommandList>
+                  <CommandEmpty>No client found.</CommandEmpty>
+                  <CommandGroup>
+                    {clients.map((client) => (
+                      <CommandItem
+                        key={client.value}
+                        value={client.value}
+                        onSelect={(currentValue) => {
+                          setFilterClientName(
+                            currentValue === filterClientName
+                              ? ""
+                              : currentValue
+                          );
+                          setOpenClientCombobox(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            filterClientName === client.value
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {client.label}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <Button onClick={triggerPrint}>Print Calendar</Button>
         </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
-        {/* Total Employees */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalStaff}</div>
-          </CardContent>
-        </Card>
-
-        {/* Present Employees */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Present</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{present}</div>
-          </CardContent>
-        </Card>
-
-        {/* Late Employees */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Late</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{late}</div>
-          </CardContent>
-        </Card>
-
-        {/* Absent Employees */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Absent</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{absent}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Attendance Details Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center mb-4">
-            <CardTitle>Attendance Details</CardTitle>
+        <div className="bg-white shadow-none" ref={calendarComponentRef}>
+          <div className="print-header" style={{ display: "none" }}>
+            Monthly Chart {printClientName ? `- ${printClientName}` : ""}
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Current Date</TableHead>
-                <TableHead>Check In</TableHead>
-                <TableHead>Check Out</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAttendanceData.map((record) => (
-                <TableRow
-                  key={record.id}
-                  onClick={() => handleStaffClick(record.id)}
-                  className="cursor-pointer hover:bg-gray-100"
+          <FullCalendar
+          ref={calendarRef}
+          plugins={[
+            dayGridPlugin,
+            timeGridPlugin,
+            listPlugin,
+            interactionPlugin,
+          ]}
+          initialView="dayGridMonth"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay,listYear",
+          }}
+          events={events}
+          selectable={true}
+          select={handleDateSelect}
+          eventClick={handleEventClick}
+          editable={true}
+          eventDrop={handleEventDrop}
+          eventResize={handleEventResize}
+          eventChange={handleEventChange}
+          eventResizableFromStart={true}
+          aspectRatio={1.5} // Increased from 1.35 to ensure all columns fit
+          contentHeight="auto" // Added to control the calendar's height
+          timeZone="Asia/Kolkata"
+          handleWindowResize={true}
+          stickyHeaderDates={true}
+          dayMaxEvents={2}
+          moreLinkClick="popover"
+          eventTimeFormat={{
+            hour: "numeric",
+            minute: "2-digit",
+            meridiem: "short",
+          }}
+          dayCellClassNames="border-2 border-gray-300"
+          eventClassNames="mb-1 font-semibold"
+          dayHeaderClassNames="bg-gray-200 text-gray-700 uppercase tracking-wider"
+        />
+        </div>
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {isEditing ? "Edit Event" : "Add New Event"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title">Event Title</Label>
+                <Input
+                  id="title"
+                  value={newEvent.title}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, title: e.target.value })
+                  }
+                />
+                {errors.title && <p className="text-red-500">{errors.title}</p>}
+              </div>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={newEvent.description}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, description: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
+                  value={newEvent.location}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, location: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={newEvent.category}
+                  onValueChange={(value) =>
+                    setNewEvent({ ...newEvent, category: value })
+                  }
                 >
-                  <TableCell className="font-medium">{record.name}</TableCell>
-                  <TableCell>{new Date().toISOString().split("T")[0]}</TableCell>
-                  <TableCell>{record.checkIn}</TableCell>
-                  <TableCell>{record.checkOut}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        record.status === "Present"
-                          ? "default"
-                          : record.status === "Late"
-                          ? "warning"
-                          : "destructive"
-                      }
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.category && (
+                  <p className="text-red-500">{errors.category}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="clientName">Client Name</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openClientCombobox}
+                      className="w-full justify-between"
                     >
-                      {record.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
+                      {newEvent.clientName || "Select a client"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[460px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search clients..." />
+                      <CommandList>
+                        <CommandEmpty>No client found.</CommandEmpty>
+                        <CommandGroup>
+                          {clients.map((client) => (
+                            <CommandItem
+                              key={client.value}
+                              value={client.value}
+                              onSelect={(currentValue) => {
+                                setNewEvent({
+                                  ...newEvent,
+                                  clientName: currentValue,
+                                });
+                                setOpenClientCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  newEvent.clientName === client.value
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {client.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isDone"
+                  checked={newEvent.isDone}
+                  onCheckedChange={(checked) =>
+                    setNewEvent({ ...newEvent, isDone: checked })
+                  }
+                />
+                <Label htmlFor="isDone">Mark as Done</Label>
+              </div>
+            </div>
+            <DialogFooter>
+              {isEditing && (
+                <Button variant="destructive" onClick={handleEventDelete}>
+                  Delete
+                </Button>
+              )}
+              <Button onClick={handleEventAdd}>
+                {isEditing ? "Update" : "Add"} Event
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Card>
     </div>
   );
 };
 
-export default Attendance;
-
-,
-SUPABASE TABLE :
-create table
-  public.attendance (
-    id uuid not null default extensions.uuid_generate_v4 (),
-    staff_id uuid null,
-    date date not null,
-    time time without time zone not null,
-    constraint attendance_pkey primary key (id),
-    constraint attendance_staff_id_fkey foreign key (staff_id) references staff (id)
-  ) tablespace pg_default;
-  ,
-create table
-  public.staff (
-    id uuid not null default extensions.uuid_generate_v4 (),
-    name text not null,
-    department text not null,
-    position text not null,
-    constraint staff_pkey primary key (id)
-  ) tablespace pg_default;
-  ,add extra columns for
-Days Present,	Days Late,	Days Absent and Average Check-in of for each employee in the Attendance Details table in Attendance.jsx .there are two time values for a employee in a day , one which represent checkin and other check out , based on it please provide the correct detaisl of employees whose Days Present,	Days Late,	Days Absent and Average Check-in.
-
-
+export default CalendarSection;
+,This is created using React, Tailwind CSS, Shadow DOM, Supabase, and FullCalendar. The current setup essentially captures a screenshot of the current web UI and displays it in the downloaded PDF when the print button is clicked, which explains the visibility of the buttons. Instead of using the react-to-print library, I want to programmatically generate a calendar with the selected client's events , clients selected using filter by client and include a heading with the name 'Monthly Chart' and the client's name in the downloaded PDF when the print button is pressed.
