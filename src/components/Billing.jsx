@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "../supabase";
 import { v4 as uuidv4 } from "uuid";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, Trash2 } from "lucide-react"; // Import Trash2 icon for delete action
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ const Billing = () => {
     { description: "Total Engagements", quantity: "", numberOfDays: "", total: "" },
     { description: "Story", quantity: "", numberOfDays: "", total: "" }
   ]);
+
   const [billHistory, setBillHistory] = useState([]);
   const [clientDetails, setClientDetails] = useState("");
   const [manualTotal, setManualTotal] = useState(0);
@@ -67,6 +68,12 @@ const Billing = () => {
     const newAdditionalBills = [...additionalBills];
     newAdditionalBills[index][field] = value;
     setAdditionalBills(newAdditionalBills);
+  };
+
+  const deleteItem = (index) => {
+    const newItems = [...items];
+    newItems.splice(index, 1); // Remove the item at the specified index
+    setItems(newItems);
   };
 
   const handleBillGenerated = async () => {
@@ -255,7 +262,7 @@ const Billing = () => {
             </div>
 
             {items.map((item, index) => (
-              <div key={index} className="flex flex-wrap -mx-2 mb-4">
+              <div key={index} className="flex  -mx-2 mb-4">
                 <div className="w-full md:w-1/2 px-2 mb-4 md:mb-0">
                   <Label htmlFor={`description-${index}`} className="block text-sm font-medium text-gray-700 mb-1">Description</Label>
                   <Input
@@ -287,6 +294,18 @@ const Billing = () => {
                     placeholder="Days"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                </div>
+                {/* Add a delete button for each row */}
+                <div className="flex items-center justify-center w-full md:w-auto px-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deleteItem(index)}
+                    className="mt-6"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    
+                  </Button>
                 </div>
               </div>
             ))}
@@ -346,6 +365,7 @@ const Billing = () => {
           </CardContent>
         </Card>
 
+        {/* Bill History Section */}
         <Card className="bg-gray-50 shadow-none rounded-lg overflow-hidden">
           <CardHeader className="text-black">
             <CardTitle className="text-2xl">Bill History</CardTitle>
