@@ -254,8 +254,8 @@ const MonthlyExpenses = () => {
 
   return (
     <div>
-       <div className="flex justify-between items-center ">
-        <h2 className="text-2xl font-bold mb-4">Monthly Expenses & Income</h2>
+       <div className="flex mb-4 justify-between items-center ">
+        <h2 className="text-2xl font-bold ml-2 md:-ml-0">Expenses & Income</h2>
         <NotificationDropdown />
       </div>
 

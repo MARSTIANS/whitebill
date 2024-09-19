@@ -255,11 +255,27 @@ const Client = () => {
       client.client_name.toLowerCase().includes(searchTerm.toLowerCase())
     ),
   }));
+  const getTextColorClass = (color) => {
+    switch (color) {
+      case 'blue':
+        return 'text-blue-600';
+      case 'red':
+        return 'text-red-600';
+      case 'green':
+        return 'text-green-600';
+      case 'yellow':
+        return 'text-yellow-600';
+      case 'purple':
+        return 'text-purple-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="flex justify-between items-center ">
-        <h2 className="text-2xl font-bold mb-4">Clients</h2>
+      <div className="flex mb-4 justify-between items-center ">
+        <h2 className="text-2xl font-bold  ml-2 md:-ml-0">Clients</h2>
         <NotificationDropdown />
       </div>
 

@@ -61,8 +61,10 @@ const DownloadButton = ({ transactions, reportTitle, reportSubtitle, reportDateR
 
   return (
     <Button onClick={downloadPdf}>
-      Download PDF
-    </Button>
+    <span className="block md:hidden">Download</span> 
+    <span className="hidden md:block">Download PDF</span> 
+  </Button>
+  
   );
 };
 

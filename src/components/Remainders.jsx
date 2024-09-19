@@ -175,8 +175,8 @@ const Remainders = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold mb-4">Reminders</h2>
+      <div className="flex mb-4 justify-between items-center">
+        <h2 className="text-2xl font-bold  ml-2 md:-ml-0">Reminders</h2>
         <NotificationDropdown />
       </div>
       <Card className="bg-gray-50 p-6 shadow-none">

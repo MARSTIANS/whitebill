@@ -162,8 +162,8 @@ const Billing = () => {
 
   return (
     <div className="">
-      <div className="flex justify-between items-center ">
-        <h2 className="text-2xl font-bold mb-4">Billing</h2>
+      <div className="flex justify-between mb-4 items-center ">
+        <h2 className="text-2xl font-bold ml-2 md:-ml-0">Billing</h2>
         <NotificationDropdown />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -285,7 +285,7 @@ const Billing = () => {
                   />
                 </div>
                 <div className="w-full md:w-1/4 px-2">
-                  <Label htmlFor={`numberOfDays-${index}`} className="block text-sm font-medium text-gray-700 mb-1">Number of Days</Label>
+                  <Label htmlFor={`numberOfDays-${index}`} className="block text-sm font-medium text-gray-700 mb-1">Days</Label>
                   <Input
                     type="number"
                     id={`numberOfDays-${index}`}
@@ -301,7 +301,7 @@ const Billing = () => {
                     variant="destructive"
                     size="sm"
                     onClick={() => deleteItem(index)}
-                    className="mt-6"
+                    className="sm:mt-6"
                   >
                     <Trash2 className="h-4 w-4 mr-1" />
                     

@@ -39,7 +39,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Menu } from "lucide-react"; // Added Menu Icon
 import NotificationDropdown from "./NotificationDropdown";
 import jsPDF from "jspdf";
 
@@ -90,6 +90,7 @@ const CalendarSection = () => {
   const [openClientCombobox, setOpenClientCombobox] = useState(false);
   const calendarRef = useRef(null);
   const [currentMonth, setCurrentMonth] = useState(new Date()); // Track the displayed month
+  const [showFilters, setShowFilters] = useState(false); // State for mobile filter toggle
 
   const fetchClients = async () => {
     const { data, error } = await supabase
@@ -609,16 +610,25 @@ const CalendarSection = () => {
   return (
     <div>
       <div className="flex justify-between items-center ">
-        <h2 className="text-2xl font-bold mb-4">Event Calendar</h2>
+        <h2 className="text-2xl font-bold mb-4 ml-2 md:-ml-0">Event Calendar</h2>
         <NotificationDropdown />
       </div>
       <Card className="bg-gray-50 p-4">
-        <div className="mb-4 flex space-x-2">
+        {/* Mobile: Show a hamburger menu to toggle the filter */}
+        <div className="md:hidden mb-4">
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+            <Menu className="w-6 h-6" />
+          </Button>
+        </div>
+
+        {/* Filters are hidden on mobile unless the menu is toggled */}
+        <div className={`md:flex mb-4 space-x-2 ${showFilters ? "block" : "hidden"} md:block`}>
           <Input
             placeholder="Search events..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyUp={fetchEvents}
+            className="mb-2 md:mb-0"
           />
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger>
