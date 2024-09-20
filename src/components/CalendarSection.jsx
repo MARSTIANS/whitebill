@@ -47,6 +47,7 @@ const CATEGORIES = [
   { value: "shoot", label: "Shoot" },
   { value: "meeting", label: "Meeting" },
   { value: "post", label: "Post" },
+  { value: "editing", label: "Editing" }, // New category added
 ];
 
 const FILTER_CATEGORIES = [{ value: "all", label: "All" }, ...CATEGORIES];
@@ -60,6 +61,8 @@ const getCategoryColor = (category, isDone) => {
       return "#0582ca";
     case "post":
       return "#f48c06";
+    case "editing": // Assigning color to the new "editing" category
+      return "#9d4edd"; 
     default:
       return "#6c757d";
   }
