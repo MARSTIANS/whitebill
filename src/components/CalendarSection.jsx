@@ -759,7 +759,7 @@ const CalendarSection = () => {
                 {errors.title && <p className="text-red-500">{errors.title}</p>}
               </div>
               <div>
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Remarks</Label>
                 <Textarea
                   id="description"
                   value={newEvent.description}
@@ -861,16 +861,18 @@ const CalendarSection = () => {
                 <Label htmlFor="isDone">Mark as Done</Label>
               </div>
             </div>
-            <DialogFooter>
-              {isEditing && (
-                <Button variant="destructive" onClick={handleEventDelete}>
-                  Delete
-                </Button>
-              )}
-              <Button onClick={handleEventAdd}>
-                {isEditing ? "Update" : "Add"} Event
-              </Button>
-            </DialogFooter>
+         
+            <DialogFooter className={"mt-4"}>
+  {isEditing && (
+    <Button variant="destructive" className="mr-auto" onClick={handleEventDelete}>
+      Delete
+    </Button>
+  )}
+  <Button className="ml-auto" onClick={handleEventAdd}>
+    {isEditing ? "Update" : "Add"} Event
+  </Button>
+</DialogFooter>
+
           </DialogContent>
         </Dialog>
       </Card>

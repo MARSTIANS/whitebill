@@ -3,14 +3,14 @@ import { Link, Route, Routes, useLocation, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  ReceiptText, 
-  Calendar, 
-  ReceiptIndianRupee, 
-  Users, 
-  AlarmClock, 
+import {
+  ReceiptText,
+  Calendar,
+  ReceiptIndianRupee,
+  Users,
+  AlarmClock,
   CheckCircle,
-  EllipsisVertical
+  EllipsisVertical,
 } from "lucide-react";
 import Billing from "./components/Billing";
 import CalendarSection from "./components/CalendarSection";
@@ -20,7 +20,7 @@ import Remainders from "./components/Remainders";
 import Attendance from "./components/Attendance";
 import IndividualAttendanceReport from "./components/IndividualAttendanceReport"; 
 
-const Home = () => {
+const Home = ({ role }) => { // Accept role as a prop
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isTablet, setIsTablet] = useState(false);
@@ -50,7 +50,7 @@ const Home = () => {
 
   const handleIconClick = (path) => {
     if (isMobile) {
-      setSidebarOpen(false); // Automatically close the sidebar after navigation
+      setSidebarOpen(false);
       window.location.pathname = `/home/${path}`;
     }
   };
@@ -76,8 +76,8 @@ const Home = () => {
   }, [sidebarOpen, isMobile]);
 
   const sidebarVariants = {
-    expanded: { width: isMobile ? 250 : 180 }, // Increased width for mobile
-    collapsed: { width: isMobile ? 80 : 80 }, // Collapsed width remains the same for mobile
+    expanded: { width: isMobile ? 250 : 180 },
+    collapsed: { width: isMobile ? 80 : 80 },
   };
 
   const textVariants = {
@@ -87,18 +87,22 @@ const Home = () => {
 
   const transitionSpeed = 0.07;
 
+  // Conditionally render icons based on user role
   const navItems = [
     { path: "calendar", icon: <Calendar className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Calendar" },
-    { path: "billing", icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Billing" },
-    { path: "monthly-expenses", icon: <ReceiptIndianRupee className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Expenses" },
-    { path: "clients", icon: <Users className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Clients" },
-    { path: "remainders", icon: <AlarmClock className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Remainders" },
-    { path: "attendance", icon: <CheckCircle className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Attendance" },
+    ...(role === "admin"
+      ? [
+          { path: "billing", icon: <ReceiptText className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Billing" },
+          { path: "monthly-expenses", icon: <ReceiptIndianRupee className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Expenses" },
+          { path: "clients", icon: <Users className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Clients" },
+          { path: "remainders", icon: <AlarmClock className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Remainders" },
+          { path: "attendance", icon: <CheckCircle className="w-6 h-6 -ml-1 flex-shrink-0" />, label: "Attendance" },
+        ]
+      : []),
   ];
 
   return (
     <div className="flex h-screen relative">
-      {/* Hamburger Menu Icon for Mobile */}
       {isMobile && (
         <div className="fixed top-5 z-30">
           <Button variant="outline" className="p-0 rounded-l-none" onClick={handleHamburgerClick}>
@@ -109,7 +113,6 @@ const Home = () => {
         </div>
       )}
 
-      {/* Sidebar Overlay for Mobile */}
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-10"
@@ -117,12 +120,9 @@ const Home = () => {
         ></div>
       )}
 
-      {/* Sidebar */}
       <motion.div
         id="sidebar"
-        className={`h-full bg-white shadow-md flex flex-col justify-between absolute z-20 ${
-          isMobile && !sidebarOpen ? "hidden" : ""
-        }`}
+        className={`h-full bg-white shadow-md flex flex-col justify-between absolute z-20 ${isMobile && !sidebarOpen ? "hidden" : ""}`}
         animate={isCollapsed ? "collapsed" : "expanded"}
         variants={sidebarVariants}
         initial="collapsed"
@@ -137,9 +137,7 @@ const Home = () => {
                 key={item.path}
                 asChild
                 variant="ghost"
-                className={`w-full mt-14 justify-start ${
-                  location.pathname === `/home/${item.path}` ? "bg-gray-200" : "hover:bg-gray-100"
-                }`}
+                className={`w-full mt-14 justify-start ${location.pathname === `/home/${item.path}` ? "bg-gray-200" : "hover:bg-gray-100"}`}
                 onClick={() => handleIconClick(item.path)}
               >
                 <Link to={item.path} className="w-full text-left flex items-center space-x-2">
@@ -164,7 +162,6 @@ const Home = () => {
         </Card>
       </motion.div>
 
-      {/* Main Content */}
       <div className={`flex-1 p-6 overflow-auto ${isMobile ? "ml-0 " : "ml-20"}`}>
         <Routes>
           <Route path="billing" element={<Billing />} />

@@ -161,7 +161,7 @@ const Billing = () => {
   );
 
   return (
-    <div className="">
+    <div className="h-2">
       <div className="flex justify-between mb-4 items-center ">
         <h2 className="text-2xl font-bold ml-2 md:-ml-0">Billing</h2>
         <NotificationDropdown />
@@ -366,7 +366,7 @@ const Billing = () => {
         </Card>
 
         {/* Bill History Section */}
-        <Card className="bg-gray-50 shadow-none rounded-lg overflow-hidden">
+        <Card className="bg-gray-50 shadow-none  rounded-lg overflow-hidden">
           <CardHeader className="text-black">
             <CardTitle className="text-2xl">Bill History</CardTitle>
           </CardHeader>

@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import NotificationDropdown from "./NotificationDropdown";
+import { Textarea } from "@/components/ui/textarea";
 
 const Client = () => {
   const [columns, setColumns] = useState([]);
@@ -397,48 +398,56 @@ const Client = () => {
 
       {/* Add/Edit Client Dialog */}
       {selectedClient && (
-        <Dialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{isEditMode ? 'Edit Client' : 'Add New Client'}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                placeholder="Client Name"
-                value={selectedClient.client_name || ''}
-                onChange={(e) => setSelectedClient({ ...selectedClient, client_name: e.target.value })}
-              />
-              <Input
-                placeholder="Name"
-                value={selectedClient.name || ''}
-                onChange={(e) => setSelectedClient({ ...selectedClient, name: e.target.value })}
-              />
-              <Input
-                placeholder="Company Name"
-                value={selectedClient.company || ''}
-                onChange={(e) => setSelectedClient({ ...selectedClient, company: e.target.value })}
-              />
-              <Input
-                placeholder="Phone Number"
-                value={selectedClient.phone || ''}
-                onChange={(e) => setSelectedClient({ ...selectedClient, phone: e.target.value })}
-              />
-              <Input
-                placeholder="Location"
-                value={selectedClient.location || ''}
-                onChange={(e) => setSelectedClient({ ...selectedClient, location: e.target.value })}
-              />
-            </div>
-            <div className="mt-4 flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setSelectedClient(null)}>
-                Cancel
-              </Button>
-              <Button onClick={() => handleAddOrUpdateClient(selectedClient)}>
-                {isEditMode ? 'Save Changes' : 'Add Client'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+    <Dialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{isEditMode ? 'Edit Client' : 'Add New Client'}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <Input
+          placeholder="Client Name"
+          value={selectedClient.client_name || ''}
+          onChange={(e) => setSelectedClient({ ...selectedClient, client_name: e.target.value })}
+        />
+        <Input
+          placeholder="Name"
+          value={selectedClient.name || ''}
+          onChange={(e) => setSelectedClient({ ...selectedClient, name: e.target.value })}
+        />
+        <Input
+          placeholder="Company Name"
+          value={selectedClient.company || ''}
+          onChange={(e) => setSelectedClient({ ...selectedClient, company: e.target.value })}
+        />
+        <Input
+          placeholder="Phone Number"
+          value={selectedClient.phone || ''}
+          onChange={(e) => setSelectedClient({ ...selectedClient, phone: e.target.value })}
+        />
+        <Input
+          placeholder="Location"
+          value={selectedClient.location || ''}
+          onChange={(e) => setSelectedClient({ ...selectedClient, location: e.target.value })}
+        />
+        {/* Add the remarks Textarea here */}
+        <Textarea
+          placeholder="Remarks"
+          value={selectedClient.remarks || ''}  // Ensure the `remarks` field is added to your `selectedClient` object
+          onChange={(e) => setSelectedClient({ ...selectedClient, remarks: e.target.value })}
+          rows={4}
+        />
+      </div>
+      <div className="mt-4 flex justify-end space-x-2">
+        <Button variant="outline" onClick={() => setSelectedClient(null)}>
+          Cancel
+        </Button>
+        <Button onClick={() => handleAddOrUpdateClient(selectedClient)}>
+          {isEditMode ? 'Save Changes' : 'Add Client'}
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+  
       )}
     </div>
   );

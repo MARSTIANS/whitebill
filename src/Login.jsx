@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 
-const Login = () => {
+const Login = ({ setRole }) => { // Accept setRole as a prop
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -37,7 +37,8 @@ const Login = () => {
       return;
     }
 
-    navigate("/home");
+    setRole(data.role); // Set the user's role here
+    navigate("/home"); // Redirect to Home
   };
 
   return (
