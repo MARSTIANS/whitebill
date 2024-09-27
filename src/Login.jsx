@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 
-const Login = ({ setRole }) => { // Accept setRole as a prop
+const Login = ({ setRole, setIsAuthenticated }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -37,8 +37,14 @@ const Login = ({ setRole }) => { // Accept setRole as a prop
       return;
     }
 
-    setRole(data.role); // Set the user's role here
-    navigate("/home"); // Redirect to Home
+    // Set the user's role and authentication status
+    setRole(data.role);
+    setIsAuthenticated(true);
+
+    // Store role in local storage to persist login (optional)
+    localStorage.setItem("role", data.role);
+
+    navigate("/home");
   };
 
   return (

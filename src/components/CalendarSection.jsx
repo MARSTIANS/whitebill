@@ -42,6 +42,7 @@ import {
 import { Check, ChevronsUpDown, Menu } from "lucide-react"; // Added Menu Icon
 import NotificationDropdown from "./NotificationDropdown";
 import jsPDF from "jspdf";
+import ProfileDropdown from "./ProfileDropdown"; 
 
 const CATEGORIES = [
   { value: "shoot", label: "Shoot" },
@@ -614,7 +615,10 @@ const CalendarSection = () => {
     <div>
       <div className="flex justify-between items-center ">
         <h2 className="text-2xl font-bold mb-4 ml-2 md:-ml-0">Event Calendar</h2>
-        <NotificationDropdown />
+        <div className="flex space-x-5 mb-4">
+          <div className="">
+        <ProfileDropdown /></div>
+        <NotificationDropdown /></div>
       </div>
       <Card className="bg-gray-50 p-4">
         {/* Mobile: Show a hamburger menu to toggle the filter */}
