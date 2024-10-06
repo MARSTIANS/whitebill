@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import ReactToPrint from "react-to-print";
-import Logo from "@/assets/logo1.png";
+import PlaceholderLogo from "@/assets/placeholder_logo.png"; // Placeholder for company logo
 
 const PrintUI = ({ items, total, additionalBills, onBillGenerated, date, clientDetails }) => {
   const componentRef = useRef();
@@ -58,7 +58,7 @@ class InvoicePrintComponent extends React.Component {
         {/* Header Section */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "30px" }}>
           <div style={{ display: "flex", alignItems: "center", marginLeft: "-35px" }}>
-            <img src={Logo} alt="Logo" style={{ width: '250px', height: '170px' }} />
+            <img src={PlaceholderLogo} alt="Company Logo" style={{ width: '250px', height: '170px' }} />
           </div>
           <div style={{ textAlign: "right" }}>
             <h1 style={{ fontFamily: "RoxboroughCF", fontSize: "28pt", margin: "0", color: "#333" }}>INVOICE</h1>
@@ -77,10 +77,10 @@ class InvoicePrintComponent extends React.Component {
             </p>
           </div>
           <div style={{ textAlign: "right" }}>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>White Branding</p>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>Thrissur, Kerala</p>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>8606602888</p>
-            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>whitebranding0@gmail.com</p>
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>[Company Name Placeholder]</p>
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>[Company Address Placeholder]</p>
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>[Company Phone Number Placeholder]</p>
+            <p style={{ fontFamily: "Inter", fontSize: "12pt", color: "#555" }}>[Company Email Placeholder]</p>
           </div>
         </div>
 
@@ -102,32 +102,31 @@ class InvoicePrintComponent extends React.Component {
 
         {/* Additional Bills Section */}
         {additionalBills.length > 0 && (
-          <div style={{  textAlign: "right",marginBottom: "30px" }}>
+          <div style={{ textAlign: "right", marginBottom: "30px" }}>
             {additionalBills.map((bill, index) => (
-            <div key={index} style={{ marginBottom: "10px" }}>
-            <span style={{ textAlign: "right", fontFamily: "Inter Medium", fontSize: "13pt", color: "#333" }}>
-              {bill.name}
-            </span>
-            <span style={{  marginLeft: "20px",textAlign: "right", fontFamily: "Inter Medium", fontSize: "13pt", color: "#333" }}>
-              ₹{parseFloat(bill.amount).toFixed(2)}
-            </span>
-          </div>
-          
+              <div key={index} style={{ marginBottom: "10px" }}>
+                <span style={{ textAlign: "right", fontFamily: "Inter Medium", fontSize: "13pt", color: "#333" }}>
+                  {bill.name}
+                </span>
+                <span style={{ marginLeft: "20px", textAlign: "right", fontFamily: "Inter Medium", fontSize: "13pt", color: "#333" }}>
+                  ₹{parseFloat(bill.amount).toFixed(2)}
+                </span>
+              </div>
             ))}
           </div>
         )}
 
         {/* Total Section */}
         <div style={{ textAlign: "right", marginBottom: "40px" }}>
-        <hr 
-  style={{
-    width: "20%", 
-    borderColor: "#bcb8b1", 
-    marginLeft: "auto" // This aligns the hr to the right
-  }} 
-/>
+          <hr
+            style={{
+              width: "20%",
+              borderColor: "#bcb8b1",
+              marginLeft: "auto" // This aligns the hr to the right
+            }}
+          />
 
-          <div style={{  paddingTop: "10px" }}>
+          <div style={{ paddingTop: "10px" }}>
             <span style={{
               fontFamily: "Inter Medium",
               fontSize: "14pt",
